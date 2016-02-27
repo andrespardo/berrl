@@ -7,9 +7,11 @@ This repository is a combination of 3 repositories I've previously made for geos
 
 Instead of using functions made for JS and ported to Python I do the reverse making pandas dataframes able to be directly input and parsed correctly into geojson and styled generally how I desire it.By doing this one can put the geospatial analysis on the shoulders of pandas and numpy and put a lot of the hang ups when dealing with geospatial data to the side or at least make them static enough to negate a lot of the confusion. 
 
-The result is a more stable, manageable system, that is ready for data to be dealt with in realtime, which pretty cool:
-![](https://cloud.githubusercontent.com/assets/10904982/13334258/1edaf6be-dbd9-11e5-9484-2a6aaa17e0db.gif)
-
+**The result is a more stable, manageable system, that is ready for data to be dealt with in realtime, which pretty cool.**
+##### Realtime mapping of Buses in LA
+<p align="center">
+  <img src="https://cloud.githubusercontent.com/assets/10904982/13334258/1edaf6be-dbd9-11e5-9484-2a6aaa17e0db.gif" alt="Realtime Data"/>
+</p>
 
 #### HTML/JavaScript side of mapping?
 Collecting all the geojson locations as you make them and inputting a color field kwarg allows you to style/pipe data into the correct HTML by simply "peaking" into the geojsons fields and outputting the correct HTML for each individual geojson. So essentially by keeping things static we can parse the HTML into working maps pretty easily and reliably. 
@@ -133,5 +135,6 @@ bl.loadparsehtml(filenames,apikey,colorkey='color')
 ![](https://cloud.githubusercontent.com/assets/10904982/13198831/795c37a2-d7e1-11e5-9733-584f3f544831.png)
 ![](https://cloud.githubusercontent.com/assets/10904982/13198832/7c66f176-d7e1-11e5-986d-0da285c97cc1.png)
 
-# View the Documentation [here](https://raw.githubusercontent.com/murphy214/berrl/master/documentation.txt).
+##### View the Documentation
+**View the Documentation [here](https://raw.githubusercontent.com/murphy214/berrl/master/documentation.txt)**
 
