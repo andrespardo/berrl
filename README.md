@@ -29,9 +29,9 @@ The 3 modules include:
 * [38 minutes of LA Bus Traffic in Realtime](https://www.youtube.com/watch?v=Vm-W137QhkE)
 
 #### Setup and Usage Notes
-To setup currently download this repository navigate to it and enter the following in terminal:
+To install berrl in terminial enter:
 ```
-python setup.py install
+pip install berrl
 ```
 Prereqs include:
 * [geohash](https://github.com/hkwi/python-geohash) (which I think requires XCode this isn't my module just the one I used for the pipegeohash module)
