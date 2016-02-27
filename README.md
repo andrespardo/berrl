@@ -80,7 +80,49 @@ bl.loadparsehtml(bl.collect(),key) # collects all the geojsons that exist in the
 ```
 
 ##### Output of Map Below
-![]()
+![](https://cloud.githubusercontent.com/assets/10904982/13375628/e002668e-dd72-11e5-8b12-25191003e906.png)
+
+##### Turning the Problem into One were familiar with
+The code below shows how just a few steps with map_table() function can turn a problem like this into a simple list comprehension and shows you the blocks were iterating through to help you visualize whats going on. Were sort of windowing through blocks on the line instead of all points to simplify the problem.
+```python
+import berrl as bl
+import numpy as np
+import pandas as pd
+
+key='your api key'
+
+# reading into memory
+points=pd.read_csv('points_example.csv')
+line=pd.read_csv('line_example.csv')
+
+# geohashing each table
+points=bl.map_table(points,7,list=True)
+line=bl.map_table(line,7,list=True)
+
+# getting unique geohashs 
+uniquepoints=np.unique(points['GEOHASH']).tolist()
+uniqueline=np.unique(line['GEOHASH']).tolist()
+
+newpoints=[points.columns.values.tolist()]
+# we know if a unique point is in any unique line its on the route
+for row in uniquepoints:
+	oldrow=row
+	for row in uniqueline:
+		if row==oldrow:
+			temp=points[points.GEOHASH==oldrow]
+			temp=bl.df2list(temp)
+			newpoints+=temp[1:] # getting all the points within this geohashs
+
+# making the new points, line, and blocks along line 
+bl.make_points(newpoints,list=True,filename='points.geojson')
+bl.make_blocks('squares7.csv',filename='blocks_on_line.geojson')
+bl.make_line(line,list=True,filename='line.geojson')
+
+# loading html
+bl.loadparsehtml(bl.collect(),key)
+```
+##### Output of Map Below 
+![](https://cloud.githubusercontent.com/assets/10904982/13375726/680e642c-dd75-11e5-9086-a998ccb48cd9.png)
 
 ##### View the Documentation
 **View the Documentation [here](https://raw.githubusercontent.com/murphy214/berrl/master/documentation.txt)**
