@@ -128,134 +128,133 @@ bl.loadparsehtml(filenames,apikey,colorkey='color')
 ![](https://cloud.githubusercontent.com/assets/10904982/13198831/795c37a2-d7e1-11e5-9733-584f3f544831.png)
 ![](https://cloud.githubusercontent.com/assets/10904982/13198832/7c66f176-d7e1-11e5-986d-0da285c97cc1.png)
 
-```
-BERRL DOCUMENTATION
- A. PIPEGEOJSON
- B. PIPEGEOHASH
- C. PIPEHTML
+>BERRL DOCUMENTATION
+> A. PIPEGEOJSON
+> B. PIPEGEOHASH
+> C. PIPEHTML
 
-A. PIPEGEOJSON 
-This section of the documentation contains functions for creating geojson features.
-Its important to note that square and polygon functions accept one table representing the alignment of an element while blocks and points accept tables with each row representing an individual element
+>A. PIPEGEOJSON 
+>This section of the documentation contains functions for creating geojson features.
+>Its important to note that square and polygon functions accept one table representing the alignment of an element while blocks and points accept tables with each row representing an individual element
 
-GEOJSON CREATION
- 1) Single element creation
-  make_line(table,**kwargs)
-  make_polygon(table,**kwargs)
- 2) Multiple Element functions 
-  make_points(table,**kwargs)
-  make_blocks(table,**kwargs)
- 3) MISC.
-  parselist(lines,filelocation)
+>GEOJSON CREATION
+> 1) Single element creation
+>  make_line(table,**kwargs)
+>  make_polygon(table,**kwargs)
+> 2) Multiple Element functions 
+>  make_points(table,**kwargs)
+>  make_blocks(table,**kwargs)
+> 3) MISC.
+>  parselist(lines,filelocation)
 
-	1) Single Element Functions Operating over an alignment.
-These functions take list of elements representing 
+>	1) Single Element Functions Operating over an alignment.
+>These functions take list of elements representing 
 
-1) Single element creation
-These functions one alignment of an element in tabular format.
+>1) Single element creation
+>These functions one alignment of an element in tabular format.
 
-function: make_line(table,**kwargs):
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element A csv file location is the default assumption
+>function: make_line(table,**kwargs):
+>	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element A csv file location is the default assumption
 
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
+>		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
 
-function: make_polygon(table,**kwargs):
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element. A cvs file location is the default assumption
+>function: make_polygon(table,**kwargs):
+>	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element. A cvs file location is the default assumption
 
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
-
-
-	2) Multiple Element functions 
-These functions either accept a row representing 4 points with 8 columns representing 
-each corner of the block. The make_block() function was made to be used directly with the pipegeohash’s map_table() function output csv table.
-
-function: make_points(table,**kwargs):
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a point in every row
-
-function: make_blocks(table,**kwargs):
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a blocks in every row typically expected to be like the output of the one in the pipegeohash map_table() algorithm a cvs file location is the default assumption
-
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
-
-	3) MISC.
-Miscellaneous functions you might need when using this module.
-
-function parselist(lines,filelocation):
-	lines: this is the output of any make_ function above it returns the list of lines to be written into a txt file,
-
-	filelocation: the file location to be written to, typically written with a geojson extension hopefully may add something to raise an exception if it doesn’t have one
-
-B. PIPEGEOHASH
-PIPEGEOHASH in my opinion is one the most useful modules because it helps with so many things that already are often done already and make certain algorithms worlds easier.It can be described as a block association and reduction in list. Geohashing uses a hierarchal rounding based approach to lat/longs reducing a decimal place per tier. This makes floating point data thats typically hard to derive associate value from associative, enormously valuable. 
-
-If you deal with the structure like I use in the make_functions for your data any structure or table can utilize the map_table function(). This central function takes the input table finds the lat and long fields puts them into a geohashing function and a field of x geohash precision to the table and returning it. While were mapping this table it automatically assumes you want it reduced by its unique keys and outputs a table with the geohash, 4 point coordinates (8 fields) and the count occurring in each geohash. 
-
-A great use case thats not so obvious for PIPEGEOHASH is gathering an incident about an alignment or having an alignment and needing to get only incidents occurring on it like a roadway, Say we have one route and a list of points representing car crashs, to find the incidents along the route map_table() on the table representing a roadway alignment and map_table() for the points table as well; imagine it as paints a window along an alignment in which you can very your sensivity but usually pretty high like 7,8. We can apply the np.unique(dataframe[‘GEOHASH’]).tolist() directly to our mapped tables to get the unique values in each.  We have a list of unique hash values we want to know points are on and a set of points to iterate through if they share any there along the road. A pretty familiar list comprehension. 
+>		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
 
 
-PIPEGEOHASH
- 1) MAIN OPERATION OF FUNCTION THE GEOHASHING AND REDUCTION
-  map_table(table,precision,**kwargs)
+>	2) Multiple Element functions 
+>These functions either accept a row representing 4 points with 8 columns representing 
+>each corner of the block. The make_block() function was made to be used directly with the pipegeohash’s map_table() function output csv table.
 
-	1) MAIN OPERATION OF FUNCTION THE GEOHASHING AND REDUCTION
-function map_table(table,precision,**kwargs):
-	
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element A cvs file location is the default assumption,
-	
-	precision: A int value value 1 to 8 for the size of the GEOHASH square to use,
-		
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
+>function: make_points(table,**kwargs):
+>	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a point in every row
 
-C. PIPEHTML
-This module is meant to use parse and open the JavaScript/HTML used for this map. I add a popup menu for all elements loaded via GeoJSON bringing in element header/features to the popup icon but often times they are to large without a iframe, iframe that and making it a legitimate HTML table is one of the things on the list. This module also contains the realtime script for PIPEHTML as well
+>function: make_blocks(table,**kwargs):
+>	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a blocks in every row typically expected to be like the output of the one in the pipegeohash map_table() algorithm a cvs file location is the default assumption
 
-PIPEHTML
- 1) PIPEHTML
-  loadparsehtml(filenames,apikey,**kwargs)
- 2) PIPEREALTIME
-  loadparsehtmlrealtime(filenames,apices,**kwargs)
- 3) MISC.
-  collect()
-  show()
+>		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
 
-**This operation requires a localhost at your directory to serve GeoJSONs**
+>	3) MISC.
+>Miscellaneous functions you might need when using this module.
 
-How to start a localhost http server:
- 1) Navigate to the directory that your executing from
- 2) in terminal “python -m SimpleHTTPServer”
-	
-	1) PIPEHTML
-PARSES and opens html document automatically **currently uses Safari due localhost restriction can be turned off ‘Developer>Disable Local File Restrictions’. Currently features regarding functionality are extremely limited when it comes to styling, but can input colors and automatically generates data associated with elment (and opening it)
+>function parselist(lines,filelocation):
+>	lines: this is the output of any make_ function above it returns the list of lines to be written into a txt file,
 
-function loadparsehtml(filenames,apikey,**kwargs)
-	filenames: a list of geojson file locations you wish to be parsed/loaded into the html, if you like to live dangerously you can always use the collect() function which collects all the geojson file locations/folders in the current file directory,
-	
-	apikey: the MapBox api key,
+>	filelocation: the file location to be written to, typically written with a geojson extension hopefully may add something to raise an exception if it doesn’t have one
 
-		** frame: boolean value that if your using it input frame=True and then returns the html/url in a string link instead of simply opening the created html document and opening it, use this for integration with Jupyter notebooks and then use show() of the output of this functions to output the map in an iFrame in Jupyter,
+>B. PIPEGEOHASH
+>PIPEGEOHASH in my opinion is one the most useful modules because it helps with so many things that already are often done already and make certain algorithms worlds easier.It can be described as a block association and reduction in list. Geohashing uses a hierarchal rounding based approach to lat/longs reducing a decimal place per tier. This makes floating point data thats typically hard to derive associate value from associative, enormously valuable. 
 
-		** colorkey: to indicate a color for each geojson feature simply add a color column in DataFrame indicating the color of the object (see below for currently applicable colors) the colorkey is that columns header value so usually for colorkey=‘color’ just because I call my color indication column color
+>If you deal with the structure like I use in the make_functions for your data any structure or table can utilize the map_table function(). This central function takes the input table finds the lat and long fields puts them into a geohashing function and a field of x geohash precision to the table and returning it. While were mapping this table it automatically assumes you want it reduced by its unique keys and outputs a table with the geohash, 4 point coordinates (8 fields) and the count occurring in each geohash. 
 
-	2) PIPEREALTIME
-The same thing as PIPEHTML but reloads the geojson locations over a given time series or by default every 2 seconds. Currently only supports 1 time series for every geojson but eventually we’ll support variable timing based on the elements
+>A great use case thats not so obvious for PIPEGEOHASH is gathering an incident about an alignment or having an alignment and needing to get only incidents occurring on it like a roadway, Say we have one route and a list of points representing car crashs, to find the incidents along the route map_table() on the table representing a roadway alignment and map_table() for the points table as well; imagine it as paints a window along an alignment in which you can very your sensivity but usually pretty high like 7,8. We can apply the np.unique(dataframe[‘GEOHASH’]).tolist() directly to our mapped tables to get the unique values in each.  We have a list of unique hash values we want to know points are on and a set of points to iterate through if they share any there along the road. A pretty familiar list comprehension. 
 
-function loadparsehtml(filenames,apikey,**kwargs)
-	filenames: a list of geojson file locations you wish to be parsed/loaded into the html, if you like to live dangerously you can always use the collect() function which collects all the geojson file locations/folders in the current file directory,
-	
-	apikey: the MapBox api key,
 
-		** frame: boolean value that if your using it input frame=True and then returns the html/url in a string link instead of simply opening the created html document and opening it, use this for integration with Jupyter notebooks and then use show() of the output of this functions to output the map in an iFrame in Jupyter,
+>PIPEGEOHASH
+> 1) MAIN OPERATION OF FUNCTION THE GEOHASHING AND REDUCTION
+>  map_table(table,precision,**kwargs)
 
-		** colorkey: to indicate a color for each geojson feature simply add a color column in DataFrame indicating the color of the object (see below for currently applicable colors) the colorkey is that columns header value so usually for colorkey=‘color’ just because I call my color indication column color
-	
-		** time: the time series interval in milliseconds that you want the geojsons to be updated at
+>	1) MAIN OPERATION OF FUNCTION THE GEOHASHING AND REDUCTION
+>function map_table(table,precision,**kwargs):
+>	
+>	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element A cvs file location is the default assumption,
+>	
+>	precision: A int value value 1 to 8 for the size of the GEOHASH square to use,
+>		
+>		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
 
-	3) MISC.
-Miscellaneous functions you might need when using this module.
+>C. PIPEHTML
+>This module is meant to use parse and open the JavaScript/HTML used for this map. I add a popup menu for all elements loaded via GeoJSON bringing in element header/features to the popup icon but often times they are to large without a iframe, iframe that and making it a legitimate HTML table is one of the things on the list. This module also contains the realtime script for PIPEHTML as well
 
-function collect():
-	No arguments: Collects all the geojson locations from the current directory used for when you want to load all the geojson files written into the current directory 
+>PIPEHTML
+> 1) PIPEHTML
+>  loadparsehtml(filenames,apikey,**kwargs)
+> 2) PIPEREALTIME
+>  loadparsehtmlrealtime(filenames,apices,**kwargs)
+> 3) MISC.
+>  collect()
+>  show()
 
-function show(html): 
-	html: the output of loadparsehtml() or loadparsehtmlrealtime() when using frame=True kwarg to output the iFrame of the map in Jupyter
-```
+>**This operation requires a localhost at your directory to serve GeoJSONs**
+
+>How to start a localhost http server:
+> 1) Navigate to the directory that your executing from
+> 2) in terminal “python -m SimpleHTTPServer”
+>	
+>	1) PIPEHTML
+>PARSES and opens html document automatically **currently uses Safari due localhost restriction can be turned off ‘Developer>Disable Local File Restrictions’. Currently features regarding functionality are extremely limited when it comes to styling, but can input colors and automatically generates data associated with elment (and opening it)
+
+>function loadparsehtml(filenames,apikey,**kwargs)
+>	filenames: a list of geojson file locations you wish to be parsed/loaded into the html, if you like to live dangerously you can always use the collect() function which collects all the geojson file locations/folders in the current file directory,
+>	
+>	apikey: the MapBox api key,
+
+>		** frame: boolean value that if your using it input frame=True and then returns the html/url in a string link instead of simply opening the created html document and opening it, use this for integration with Jupyter notebooks and then use show() of the output of this functions to output the map in an iFrame in Jupyter,
+
+>		** colorkey: to indicate a color for each geojson feature simply add a color column in DataFrame indicating the color of the object (see below for currently applicable colors) the colorkey is that columns header value so usually for colorkey=‘color’ just because I call my color indication column color
+
+>	2) PIPEREALTIME
+>The same thing as PIPEHTML but reloads the geojson locations over a given time series or by default every 2 seconds. Currently only supports 1 time series for every geojson but eventually we’ll support variable timing based on the elements
+
+>function loadparsehtml(filenames,apikey,**kwargs)
+>	filenames: a list of geojson file locations you wish to be parsed/loaded into the html, if you like to live dangerously you can always use the collect() function which collects all the geojson file locations/folders in the current file directory,
+>	
+>	apikey: the MapBox api key,
+
+>		** frame: boolean value that if your using it input frame=True and then returns the html/url in a string link instead of simply opening the created html document and opening it, use this for integration with Jupyter notebooks and then use show() of the output of this functions to output the map in an iFrame in Jupyter,
+
+>		** colorkey: to indicate a color for each geojson feature simply add a color column in DataFrame indicating the color of the object (see below for currently applicable colors) the colorkey is that columns header value so usually for colorkey=‘color’ just because I call my color indication column color
+>	
+>		** time: the time series interval in milliseconds that you want the geojsons to be updated at
+
+>	3) MISC.
+>Miscellaneous functions you might need when using this module.
+
+>function collect():
+>	No arguments: Collects all the geojson locations from the current directory used for when you want to load all the geojson files written into the current directory 
+
+>function show(html): 
+>	html: the output of loadparsehtml() or loadparsehtmlrealtime() when using frame=True kwarg to output the iFrame of the map in Jupyter
+
