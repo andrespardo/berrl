@@ -195,5 +195,3 @@ def greaterthentable(data,squarecsv,x):
 
 
 
-
-

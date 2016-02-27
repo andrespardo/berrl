@@ -181,7 +181,6 @@ def get_cords_line(a):
 			cordblock.append(newrow)
 			newrow=[long2,lat2,ele2]
 			cordblock.append(newrow)
-
 	return cordblock
 
 
@@ -244,6 +243,7 @@ def make_line(csvfile,**kwargs):
 	#associating attributes with a specific region
 	list=False
 	strip=False
+	filename=False
 	jsonz=False
 	outfilename=False
 	remove_squares=False
@@ -260,7 +260,10 @@ def make_line(csvfile,**kwargs):
 					remove_squares=True
 			elif key=='outfilename':
 				outfilename=str(value)
+			elif key=='filename':
+				filename=str(value)
 
+	# handling if input is a list or dataframe
 	if list==True:
 		a=csvfile
 		csvfile=outfilename
@@ -305,8 +308,10 @@ def make_line(csvfile,**kwargs):
     '\t"features": [','  {  "type": "Feature",']
 	gf=beg+[new[27:-1]]+['\t}','\t]']+[new[-1:]]
 
-
-	return gf
+	if not filename==False:
+		parselist(gf,filename)
+	else:
+		return gf
 
 #from a row and a given header returns a point with a lat, elevation
 def getlatlong(row,header):
@@ -352,6 +357,7 @@ def make_points(csvfile,**kwargs):
 	list=False
 	strip=False
 	outfilename=False
+	filename=False
 	remove_squares=False
 	jsonz=True
 	if kwargs is not None:
@@ -370,6 +376,8 @@ def make_points(csvfile,**kwargs):
 			elif key=='jsonz':
 				if value==True:
 					jsonz=True
+			elif key=='filename':
+				filename=str(value)
 
 	#checking for dataframe input
 	if list==True:
@@ -430,9 +438,10 @@ def make_points(csvfile,**kwargs):
 
 
 
-
-
-	return readytowrite
+	if not filename==False:
+		parselist(readytowrite,filename)
+	else:
+		return readytowrite
 	
 #appends a list of lines to a geojson file
 def parselist(list,location):
@@ -546,6 +555,7 @@ def make_blocks(csvfile,**kwargs):
 	strip=False
 	outfilename=False
 	remove_squares=False
+	filename=False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key=='strip':
@@ -559,6 +569,8 @@ def make_blocks(csvfile,**kwargs):
 					remove_squares=True
 			elif key=='outfilename':
 				outfilename=value
+			elif key=='filename':
+				filename=str(value)
 
 	#checking for dataframe input
 	if list==True:
@@ -611,7 +623,11 @@ def make_blocks(csvfile,**kwargs):
 		total+=new
 
 	readytowrite=start+total[:-1]+['\t}','\t]','}']
-	return readytowrite
+
+	if not filename==False:
+		parselist(readytowrite,filename)
+	else:
+		return readytowrite
 
 #makes a geojson line from a csv file or tabular list
 def make_polygon(csvfile,**kwargs):
@@ -621,6 +637,7 @@ def make_polygon(csvfile,**kwargs):
 	jsonz=False
 	outfilename=False
 	remove_squares=False
+	filename=False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key=='strip':
@@ -634,6 +651,8 @@ def make_polygon(csvfile,**kwargs):
 					remove_squares=True
 			elif key=='outfilename':
 				outfilename=str(value)
+			elif key=='filename':
+				filename=str(value)
 
 
 	if list==True:
@@ -677,7 +696,10 @@ def make_polygon(csvfile,**kwargs):
     '\t"features": [','  {  "type": "Feature",']
 	gf=beg+[new[27:-1]]+['\t}','\t]']+[new[-1:]]
 
-	return gf
+	if not filename==False:
+		parselist(gf,filename)
+	else:
+		return gf
 
 #takes a dataframe and turns it into a list
 def df2list(df):
@@ -685,7 +707,7 @@ def df2list(df):
 	return df
 
 #returns a list with geojson in the current directory
-def get_geojsons(**kwargs):
+def get_geojsons():
 	jsons=[]
 	for dirpath, subdirs, files in os.walk(os.getcwd(str(dirs))):
 	    for x in files:
@@ -710,3 +732,30 @@ def get_filetype(src,filetype):
 
 def show(url):
 	return IFrame(url, width=1000, height=600)
+
+#appends a list of lines to a geojson file
+def parselist2(list,location):
+	f=open(location,'w')
+	for row in list:
+		f.writelines(row+'\n')
+	f.close()
+
+# making all values in a partition
+def fromdataframecollection(x):
+	dataframe=x[0]
+	featuretype=x[1]
+	filename=x[2]
+
+	if featuretype=='points':
+		a=make_points(dataframe,list=True)
+	elif featuretype=='line':
+		a=make_line(dataframe,list=True)
+	elif featuretype=='blocks':
+		a=make_blocks(dataframe,list=True)
+	elif featuretype=='polygon':
+		a=make_polygon(dataframe,list=True)
+
+	parselist2(a,filename)
+	return 0
+
+

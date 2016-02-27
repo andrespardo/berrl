@@ -1,6 +1,5 @@
 
 import os
-from pipegeojson import *
 import json
 import itertools
 
@@ -105,14 +104,29 @@ def making_blockstr(varblock):
     		total+=row
     	return start+total+end
 
+#attempting to infuse real time updates
+def making_blockstr2(varblock):
+	start="""	function addDataToMap(data, map) {
+    	var dataLayer = L.geoJson(data, {
+        	onEachFeature: function(feature, layer) {"""
+
+	end="""
+	            	layer.bindPopup(popupText, {autoPan:false} ); }
+        	});
+    	dataLayer.addTo(map);\n}"""
+    	total=''
+    	for row in varblock:
+    		total+=row
+    	return start+total+end
+
 # makes the style bindings for each element
 def make_bindings(headers):
 	varblock=make_rows2(headers)
-	block=making_blockstr(varblock)	
+	block=making_blockstr2(varblock)	
 	return block
 
 # make_blockstr with color and elment options added (newer)
-def making_blockstr2(varblock,count,colorline,element):
+def making_blockstr2(varblock,count,colorline,element,time):
 	start="""function addDataToMap%s(data, map) {
     var dataLayer = L.geoJson(data, {
         onEachFeature: function(feature, layer) {""" % count
@@ -120,7 +134,7 @@ def making_blockstr2(varblock,count,colorline,element):
 	end="""
 	            layer.bindPopup(popupText, {autoPan:false} ); }
         });
-    dataLayer.addTo(map);\n}"""
+    	dataLayer.addTo(map);\n\t\tsetTimeout(function() {\n\t\t\t\tdataLayer.clearLayers();\n\t\t},%s);\n\t}\n}\nsetInterval(add%s,%s)""" % (time,count,time)
     	total=''
     	for row in varblock:
     		total+=row
@@ -130,9 +144,9 @@ def making_blockstr2(varblock,count,colorline,element):
     		return start+total+'\n'+colorline+end
 
 # make bindings after color options were added
-def make_bindings2(headers,count,colorline,element):
+def make_bindings2(headers,count,colorline,element,time):
 	varblock=make_rows2(headers)
-	block=making_blockstr2(varblock,count,colorline,element)	
+	block=making_blockstr2(varblock,count,colorline,element,time)	
 	return block
 
 '''
@@ -165,7 +179,7 @@ def make_html_block(headers,filenames):
 <script>
 L.mapbox.accessToken = 'pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A';
 var map = L.mapbox.map('map', 'mapbox.streets',{
-    center: [-86.508316670, 32.67305000],
+    center: [1, 100],
     zoom: 8
     });
 
@@ -226,7 +240,7 @@ def make_all_headertype(header,geojsonlocations):
 '''
 
 # given a list of file names and kwargs carried throughout returns a string of the function bindings for each element
-def make_bindings_type(filenames,color_input,colorkey):
+def make_bindings_type(filenames,color_input,colorkey,time):
 	string=''
 	blocky="""\nfunction addDataToMap(data, map) {
     var dataLayer = L.geoJson(data);
@@ -251,10 +265,10 @@ def make_bindings_type(filenames,color_input,colorkey):
    			colorline=get_colorline_marker(color_input)
    		elif not colorkey=='' and featuretype=='Point':
    			colorline=get_colorline_marker(data[str(colorkey)])
-   		elif not featuretype=='Point':
+   		elif colorkey=='' and not featuretype=='Point':
    			colorline=get_colorline_marker2(color_input)
    		else:
-   			colorline=get_colorline_marker2(color_input)
+   			colorline=get_colorline_marker2(data[str(colorkey)])
 
    		
    		headers=[]
@@ -264,7 +278,55 @@ def make_bindings_type(filenames,color_input,colorkey):
     var dataLayer = L.geoJson(data);
     dataLayer.addTo(map);
 }\n""" % count
-		loc="""$.getJSON('http://localhost:8000/%s',function(data) { addDataToMap%s(data,map); });""" % (filename,count)
+		preloc='function add%s() {\n' % (str(count))
+		loc="""\t$.getJSON('http://localhost:8000/%s',function(data) { addDataToMap%s(data,map); });""" % (filename,count)
+		if featuretype=='Point':
+			string+=blocky+preloc+loc+make_bindings2(headers,count,colorline,featuretype,time)+'\n'
+		else:
+			string+=blocky+preloc+loc+make_bindings2(headers,count,colorline,featuretype,time)+'\n'
+	return string
+
+# given a list of file names and kwargs carried throughout returns a string of the function bindings for each element
+def make_bindings_type2(filenames,color_input,colorkey):
+	string=''
+	blocky="""\nfunction addDataToMap(data, map) {
+    var dataLayer = L.geoJson(data);
+    dataLayer.addTo(map);
+}\n"""
+	count=0
+	for row in filenames:
+		count+=1
+		filename=row
+		with open(row) as data_file:    
+   			data = json.load(data_file)
+   		#pprint(data)
+   		data=data['features']
+   		data=data[0]
+   		featuretype=data['geometry']
+   		featuretype=featuretype['type']
+		data=data['properties']
+
+   		
+   		#if a point and no entry for color_input
+   		if featuretype=='Point' and colorkey=='':
+   			colorline=get_colorline_marker(color_input)
+   		elif not colorkey=='' and featuretype=='Point':
+   			colorline=get_colorline_marker(data[str(colorkey)])
+   		elif not colorkey=='':
+   			colorline=get_colorline_marker2(data[str(colorkey)])
+   		elif colorkey=='':
+   			colorline=get_colorline_marker2(str(color_input))
+
+   		
+   		headers=[]
+   		for row in data:
+   			headers.append(str(row))
+   		blocky=	blocky="""\nfunction addDataToMap%s(data, map) {
+    var dataLayer = L.geoJson(data);
+    dataLayer.addTo(map);
+}\n""" % count
+		start='function add() {'
+		loc="""\n$.getJSON('http://localhost:8000/%s',function(data) { addDataToMap%s(data,map); });""" % (filename,count)
 		if featuretype=='Point':
 			string+=blocky+loc+make_bindings2(headers,count,colorline,featuretype)+'\n'
 		else:
@@ -273,7 +335,7 @@ def make_bindings_type(filenames,color_input,colorkey):
 
 
 # makes the corresponding styled html for the map were about to load
-def make_html(filenames,color_input,colorkey,apikey):
+def make_html2(filenames,color_input,colorkey,apikey,time):
 	block="""<html>
 <head>
 <meta charset=utf-8 />
@@ -318,7 +380,7 @@ var map = L.mapbox.map('map', 'mapbox.streets',{
 
 
 
-\n""".replace('pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A',apikey)+make_bindings_type(filenames,color_input,colorkey)+"""\n</script>
+\n""".replace('pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A',apikey)+make_bindings_type(filenames,color_input,colorkey,time)+"""\n</script>
 
 
 </body>
@@ -369,14 +431,15 @@ def get_colorline_marker(color_input):
 
 # get colorline for non-marker objects
 def get_colorline_marker2(color_input):
-	colorline="""	    		layer.setStyle({color: '%s', weight: 3, opacity: 1});""" % get_colors2(color_input)
+	colorline="""	    		layer.setStyle({color: '%s', weight: 5, opacity: 1});""" % get_colors2(color_input)
 	return colorline
 
 # THE FUNCTION YOU ACTUALLY USE WITH THIS MODULE
-def loadparsehtml(filenames,apikey,**kwargs):
+def loadparsehtmlrealtime(filenames,apikey,**kwargs):
 	color=''
 	colorkey=''
 	frame=False
+	time=1000
 
 
 
@@ -388,9 +451,11 @@ def loadparsehtml(filenames,apikey,**kwargs):
 		if key=='frame':
 			if value==True:
 				frame=True
+		if key=='time':
+			time=int(value)
 
 
-	block=make_html(filenames,color,colorkey,apikey)
+	block=make_html2(filenames,color,colorkey,apikey,time)
 	if frame==True:
 		with open('index.html','w') as f:
 			f.write(block)
@@ -398,15 +463,5 @@ def loadparsehtml(filenames,apikey,**kwargs):
 		return 'http://localhost:8000/index.html'
 	else:
 		load(block,'index.html')
-
-# collection feature collecting all the geojson within the current directory
-def collect():
-	jsons=[]
-	for dirpath, subdirs, files in os.walk(os.getcwd()):
-	    for x in files:
-	        if x.endswith(".geojson"):
-	        	jsons.append(x)
-	return jsons
-
 
 

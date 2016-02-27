@@ -251,10 +251,10 @@ def make_bindings_type(filenames,color_input,colorkey):
    			colorline=get_colorline_marker(color_input)
    		elif not colorkey=='' and featuretype=='Point':
    			colorline=get_colorline_marker(data[str(colorkey)])
-   		elif featuretype=='Point':
-   			colorline=get_colorline_marker(color_input)
+   		elif not featuretype=='Point':
+   			colorline=get_colorline_marker2(color_input)
    		else:
-   			colorline=get_colorline_marker2(data[str(colorkey)])
+   			colorline=get_colorline_marker2(color_input)
 
    		
    		headers=[]
@@ -300,8 +300,8 @@ def make_html(filenames,color_input,colorkey,apikey):
 <script>
 L.mapbox.accessToken = 'pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A';
 var map = L.mapbox.map('map', 'mapbox.streets',{
-    center: [37, -0.09],
-    zoom: 8
+    center: [38, -102.0],
+    zoom: 5
     });
 
 // omnivore will AJAX-request this file behind the scenes and parse it: 
@@ -399,7 +399,14 @@ def loadparsehtml(filenames,apikey,**kwargs):
 	else:
 		load(block,'index.html')
 
-
+# collection feature collecting all the geojson within the current directory
+def collect():
+	jsons=[]
+	for dirpath, subdirs, files in os.walk(os.getcwd()):
+	    for x in files:
+	        if x.endswith(".geojson"):
+	        	jsons.append(x)
+	return jsons
 
 
 
