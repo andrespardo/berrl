@@ -7,6 +7,10 @@ This repository is a combination of 3 repositories I've previously made for geos
 
 Instead of using functions made for JS and ported to Python I do the reverse making pandas dataframes able to be directly input and parsed correctly into geojson and styled generally how I desire it.By doing this one can put the geospatial analysis on the shoulders of pandas and numpy and put a lot of the hang ups when dealing with geospatial data to the side or at least make them static enough to negate a lot of the confusion. 
 
+The result is a more stable, manageable system, that is ready for data to be dealt with in realtime, which pretty cool:
+![](https://cloud.githubusercontent.com/assets/10904982/13334258/1edaf6be-dbd9-11e5-9484-2a6aaa17e0db.gif)
+
+
 #### HTML/JavaScript side of mapping?
 Collecting all the geojson locations as you make them and inputting a color field kwarg allows you to style/pipe data into the correct HTML by simply "peaking" into the geojsons fields and outputting the correct HTML for each individual geojson. So essentially by keeping things static we can parse the HTML into working maps pretty easily and reliably. 
 
@@ -20,6 +24,7 @@ The 3 modules include:
 * [Live Realtime Mapping Linestring](https://www.youtube.com/watch?v=39VFWERpMg8)
 * [Heatmapping Over a Time Series Using Spark](https://www.youtube.com/watch?v=ZHf2gGxXLhc)
 * [Dynamic Line Styling over Time based on speed](https://www.youtube.com/watch?v=uG_rMjy-W7I)
+* [38 minutes of LA Bus Traffic in Realtime](https://www.youtube.com/watch?v=Vm-W137QhkE)
 
 #### Setup and Usage Notes
 To setup currently download this repository navigate to it and enter the following in terminal:
