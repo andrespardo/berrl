@@ -24,15 +24,18 @@ These functions take list of elements representing
 These functions one alignment of an element in tabular format.
 
 function: make_line(table,**kwargs):
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element A csv file location is the default assumption
+	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element A csv file location is the default assumption,
 
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
+		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory,
+
+		** filename: if this kwarg is input the normally returned list of lines will automatically be written into this file name and location 
 
 function: make_polygon(table,**kwargs):
 	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represent one element. A cvs file location is the default assumption
 
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
+		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory,
 
+		** filename: if this kwarg is input the normally returned list of lines will automatically be written into this file name and location 
 
 	2) Multiple Element functions 
 These functions either accept a row representing 4 points with 8 columns representing 
@@ -41,10 +44,16 @@ each corner of the block. The make_block() function was made to be used directly
 function: make_points(table,**kwargs):
 	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a point in every row
 
-function: make_blocks(table,**kwargs):
-	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a blocks in every row typically expected to be like the output of the one in the pipegeohash map_table() algorithm a cvs file location is the default assumption
+		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory,
 
-		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory
+		** filename: if this kwarg is input the normally returned list of lines will automatically be written into this file name and location 
+
+function: make_blocks(table,**kwargs):
+	table: where it can be either a csvfile location, a pandas dataframe, or a regular list, the table represents a blocks in every row typically expected to be like the output of the one in the pipegeohash map_table() algorithm a cvs file location is the default assumption,
+
+		** list: boolean where if your using it your sending in “list=True” to indicate your are sending in an object already read into memory,
+
+		** filename: if this kwarg is input the normally returned list of lines will automatically be written into this file name and location
 
 	3) MISC.
 Miscellaneous functions you might need when using this module.
