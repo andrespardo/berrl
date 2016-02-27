@@ -2,7 +2,7 @@ import berrl as bl
 import numpy as np
 import pandas as pd
 
-key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+key='your api key'
 
 # reading into memory
 points=pd.read_csv('points_example.csv')
