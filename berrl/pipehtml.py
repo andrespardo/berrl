@@ -24,15 +24,15 @@ def make_rows2(headers):
 
 		maxchared=15
 
-		row1='<b>'+row+'</b>'
+		row1=row
 		row2=row
 		if row==headers[0]:
-			newrow="""            var popupText = "<p><small>%s: " + feature.properties['%s']+"</small></p>"; """ % (row1,row2)
+			newrow="""            var popupText = "<table><tr><th>%s: </th><td>" + feature.properties['%s']+"</td></tr>"; """ % (row1,row2)
 		else:
-			newrow="""            var popupText = popupText + "<p><small>%s: " + feature.properties['%s']+"</small></p>"; """ % (row1,row2)
+			newrow="""            var popupText = popupText+ "<tr><th>%s: </th><td>" + feature.properties['%s']+"</td></tr>"; """ % (row1,row2)
 		varblock.append(newrow)
 		if row==headers[-1]:
-			newrow="""            var popupText = popupText + "<p><small>%s: " + feature.properties['%s']+"</small></p>"; """ % (row1,row2)
+			newrow="""            var popupText = popupText+ "<tr><th>%s: </th><td>" + feature.properties['%s']+</td></tr></table>"; """ % (row1,row2)
 	return varblock	
 
 # experimenting with dierent popups
@@ -118,7 +118,7 @@ def making_blockstr2(varblock,count,colorline,element):
         onEachFeature: function(feature, layer) {""" % count
 
 	end="""
-	            layer.bindPopup(popupText, {autoPan:false} ); }
+	            layer.bindPopup(popupText, {autoPan:false, maxHeight:500, maxWidth:350} ); }
         });
     dataLayer.addTo(map);\n}"""
     	total=''
@@ -156,6 +156,11 @@ def make_html_block(headers,filenames):
 </style>
 </head>
 <body>
+<style>
+table, th, td {
+    border: 1px solid black;
+}
+</style>
 
 
 <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.2.0/leaflet-omnivore.min.js'></script>
@@ -291,6 +296,11 @@ def make_html(filenames,color_input,colorkey,apikey):
 </style>
 </head>
 <body>
+<style>
+table, th, td {
+    border: 1px solid black;
+}
+</style>
 
 
 <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.2.0/leaflet-omnivore.min.js'></script>
