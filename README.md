@@ -62,7 +62,7 @@ bl.loadparsehtml(['sharks.geojson'],apikey)
 ```
 
 ##### Output of Map Below
-![](https://cloud.githubusercontent.com/assets/10904982/13198501/0da25ffe-d7d8-11e5-870c-ebef73bdfd1d.png)
+![](https://cloud.githubusercontent.com/assets/10904982/13379890/e24ec73c-de00-11e5-9ebf-ef7028553d64.png)
 
 #### Example: Berrl for Problem Reduction
 One of the main annoyances of geospatial data is it can be nasty to work with so many floating points numbers and develop reliable fast algorithms doing so. A common example of a problem like this is getting the occurances of points from a set that occur on a certain route. Here I'll first start by loading the points file and line file to visualize the problem. 
