@@ -231,7 +231,7 @@ def make_all_headertype(header,geojsonlocations):
 '''
 
 # given a list of file names and kwargs carried throughout returns a string of the function bindings for each element
-def make_bindings_type(filenames,color_input,colorkey):
+def make_bindings_type(filenames,color_input,colorkey,file_dictionary):
 	string=''
 	blocky="""\nfunction addDataToMap(data, map) {
     var dataLayer = L.geoJson(data);
@@ -239,6 +239,7 @@ def make_bindings_type(filenames,color_input,colorkey):
 }\n"""
 	count=0
 	for row in filenames:
+		color_input=''
 		count+=1
 		filename=row
 		with open(row) as data_file:    
@@ -249,17 +250,27 @@ def make_bindings_type(filenames,color_input,colorkey):
    		featuretype=data['geometry']
    		featuretype=featuretype['type']
 		data=data['properties']
+		if not file_dictionary==False:
+			try:
+				color_input=file_dictionary[filename]
+			except Exception:
+				color_input=''
+			if featuretype=='Point':
+				colorline=get_colorline_marker(color_input)
+			else:
+				colorline=get_colorline_marker2(color_input)
 
-   		
-   		#if a point and no entry for color_input
-   		if featuretype=='Point' and colorkey=='':
+   		if not colorkey=='':
+   			if featuretype=='Point':
+   				colorline=get_colorline(data[str(colorkey)])
+   			else:
+   				colorline=get_colorline_marker2(data[str(colorkey)])
+
+   		if featuretype=='Point':
    			colorline=get_colorline_marker(color_input)
-   		elif not colorkey=='' and featuretype=='Point':
-   			colorline=get_colorline_marker(data[str(colorkey)])
-   		elif not featuretype=='Point':
-   			colorline=get_colorline_marker2(color_input)
    		else:
    			colorline=get_colorline_marker2(color_input)
+   		
 
    		
    		headers=[]
@@ -278,7 +289,7 @@ def make_bindings_type(filenames,color_input,colorkey):
 
 
 # makes the corresponding styled html for the map were about to load
-def make_html(filenames,color_input,colorkey,apikey):
+def make_html(filenames,color_input,colorkey,apikey,file_dictionary):
 	block="""<html>
 <head>
 <meta charset=utf-8 />
@@ -328,7 +339,7 @@ var map = L.mapbox.map('map', 'mapbox.streets',{
 
 
 
-\n""".replace('pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A',apikey)+make_bindings_type(filenames,color_input,colorkey)+"""\n</script>
+\n""".replace('pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A',apikey)+make_bindings_type(filenames,color_input,colorkey,file_dictionary)+"""\n</script>
 
 
 </body>
@@ -387,6 +398,7 @@ def loadparsehtml(filenames,apikey,**kwargs):
 	color=''
 	colorkey=''
 	frame=False
+	file_dictionary=False
 
 
 
@@ -398,9 +410,10 @@ def loadparsehtml(filenames,apikey,**kwargs):
 		if key=='frame':
 			if value==True:
 				frame=True
+		if key=='file_dictionary':
+			file_dictionary=value
 
-
-	block=make_html(filenames,color,colorkey,apikey)
+	block=make_html(filenames,color,colorkey,apikey,file_dictionary)
 	if frame==True:
 		with open('index.html','w') as f:
 			f.write(block)
@@ -417,6 +430,4 @@ def collect():
 	        if x.endswith(".geojson"):
 	        	jsons.append(x)
 	return jsons
-
-
 
