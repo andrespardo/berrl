@@ -222,3 +222,29 @@ bl.loadparsehtml(bl.collect(),key,legend=legend,file_dictionary=file_dictionary)
 ```
 
 ![](https://cloud.githubusercontent.com/assets/10904982/13390608/7f2d39fc-de9d-11e5-9571-02c1cfab477d.png)
+
+#### Using the file_dictionary **Kwarg Argument for Styling
+```python
+import berrl as bl
+import itertools
+key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+# making all geojson
+bl.make_points('sharks.csv',filename='sharks.geojson')
+bl.make_line('line_example.csv',filename='line.geojson')
+bl.make_blocks('blocks_example.csv',filename='blocks.geojson')
+bl.make_polygon('polygon_example.csv',filename='polygon.geojson')
+
+# setting up colors list
+colors=['red','green','yellow','purple']
+count=0
+for a,b in itertools.izip(colors,bl.collect()):
+	if count==0:
+		filecolordict={b:a} # starting the creating of the dictionary that will import styling into html
+		count=1
+	else:
+		filecolordict[str(b)]=str(a)
+print filecolordict
+bl.loadparsehtml(bl.collect(),key,file_dictionary=filecolordict)
+```
+**Output of the styled map below using the file_dictionary argument**
+![](https://cloud.githubusercontent.com/assets/10904982/13392789/2602bdee-deab-11e5-89ae-6590a904ff7e.png)
