@@ -248,3 +248,40 @@ bl.loadparsehtml(bl.collect(),key,file_dictionary=filecolordict)
 ```
 **Output of the styled map below using the file_dictionary argument**
 ![](https://cloud.githubusercontent.com/assets/10904982/13392789/2602bdee-deab-11e5-89ae-6590a904ff7e.png)
+
+#### Styling a Series of Line Segments Randomly 
+The final example I'll do is to show how you could do directory operation on entire sets of data representing a layer or in this case a road network and make the process more intuitive for styling then most mapping services I've seen. (in code at least) The issue is most services or other frameworks like to use Classes or Objects for their apis making them limited to the extent and thats my antithesis, from how I've seen a lot of modules implemented classes rarely increase code complexity while being inherently hard to understand, decreasing comprhension while increasing complexity. A function everyone understands, theres no room for intereptation or assumptions hopefully my use of this functions has made documentation and familiarization with berrl easier. Good luck!!
+
+```python
+import pandas as pd
+import numpy as np
+import berrl as bl
+import itertools
+import random
+key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+
+# random colors put into the dictionary 
+colors=['light green', 'blue', 'red', 'yellow', 'light blue', 'orange', 'purple', 'green', 'brown', 'pink', 'default']
+count=0
+csvfiles=bl.get_filetype('csvs','csv') # getting all the csv files with the csv folder
+for row in csvfiles:
+	if count==0:
+		count+=1
+		filename=str(count)+'.geojson'
+		bl.make_line(row,filename=filename)
+		color=colors[random.randint(0,len(colors)-1)]
+		file_dictionary={filename:color}
+	else:
+		count+=1
+		filename=str(count)+'.geojson'
+		bl.make_line(row,filename=filename)
+		color=colors[random.randint(0,len(colors)-1)]
+		file_dictionary[filename]=color
+
+print file_dictionary
+bl.loadparsehtml(bl.collect(),key,file_dictionary=file_dictionary)
+```
+**Below shows the a line string network making the coal fields more colorful!**
+![]()
+
+
