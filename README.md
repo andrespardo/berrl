@@ -127,3 +127,53 @@ bl.loadparsehtml(bl.collect(),key)
 ##### View the Documentation
 **View the Documentation [here](https://raw.githubusercontent.com/murphy214/berrl/master/documentation.txt)**
 
+
+#### Berrl's Structure
+Berrl's strength is its sparse structure. Berrl has 4 main functions for geojson creation:
+* make_line(table,**kwargs)
+* make_polygon(table,**kwargs)
+* make_points(table,**kwargs) **notice the s's!**
+* make_blocks(table,**kwargs) **notice the s's!**
+
+By default all these make_ functions assume your inputting a csv file, if not and its a list/dataframe input the kwarg "list=True". These functions by default return a list of lines to be written to a geojson file. However if you wish to write out the geojson file on the spot the kwarg for the filename location is "filename" so simply set filename equal to wherever you wish to write out the geojson.
+
+If you understand above and the next sentence you understand berrl: **lines and polygons are assumed to be 1 element per geojson/dataframe, while blocks and points are assumed to represent multiple elements per dataframe/geojson. Generally speaking blocks are usually the output of pipegeohash. 
+
+##### Pipegeohash
+Pipegeohash is basically a way of working with vector tile sets most mapping platforms don't want you to have or don't think you would understand.(seriously) This is the foundation for a lot of mapping services and a core component in problem reduction for geospatial algorithms. However its simple in approach and implementation, it is a defined set of hierical squares on earth that can be rounded to the nearest digit and hashed into a unique string. There are 8 tiers each string from of the hash getting 1 character longer each tier and incorporating its parent hash's in all but last digit. Your taking what would be a two dimmensional block of points point numbers and turning it into a single line string representation of that square. By doing this your giving points that had know awareness of neighors around them a field to pivot and group by. 
+Since I'm not serving any tiles, I don't care what you do. I use this ALL the time. Right now I'm currently tweaking with some cool geofencing algorithms that could completely turn it (geofencing) into a scalable list iteration. My module pipegeohash basically consists of one function map_table(table,precision,kwargs). It does two things a table operation on the input table for geohashing adding a field,groupsby hashs and gets the block points yielding a table with every block in a input and the count each occurence in a block it returns the mapped table and does nothing with squares csv file. More often then not I'll end up using it somewhere down the script.
+
+**TL:DR If your doing a lot of decimal distance calculations followed by distance querries try this module out. You could turn a nightmare into a tutorial list comphension**
+
+# Pipehtml/Piperealtime
+Pipehtml/piperealtime have been explained quite extensively the functions however have not.
+* loadparsehtml(geojsons,apikey,**kwargs)
+ * geojson is a list of geojson elements in the current directory to be loaded can also use collect() function
+ * apikey is the mapbox apikey
+ * **colorkey is the field in all dataframes that represents the color to be styled
+ * **file_dictionary dictionary with syntax {filename:color} for all geojsons with a unique style
+* loadparsehtmlrealtime(geojsons,apikey,**kwargs)
+ * **kwargs can accept time interval to refresh geojsons by default 2 seconds. 
+
+#### How to use Berrl 
+Berrl's strength lies more in its simplicity then its complexity. Berrl allows you to make geojson elements, you either collect them in a list or use the collect() function to open up every geojson file in the directory and it automatically parses the JS/HTML so that element features are inserted into the popup window. Berrl also allows for a few more things abstractions from this, for example to style by color for each geojson element you have two options. 
+* Insert a column within the dataframe making sure to keep the same column field name for every dataframe then input a colorkey=column header kwarg in parseloadhtml() or parseloadhtmlrealtime() 
+* passing in a dictionary with the **filenames as the key** and the colors as the value to look up, this dictionary doesn't have to be the length of the geojson list it can just be a specific portion of geojsons, the rest will be assumed to be the default (blue) 
+* Colors supported include:
+  * light green
+  * blue
+  * red
+  * yellow
+  * light blue
+  * orange
+  * purple
+  * green
+  * brown
+  * pink
+  * default
+ 
+**I reserve the right to use as tacky colors as I please. Eventually more will be added later.**
+
+
+
+
