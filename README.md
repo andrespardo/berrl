@@ -175,6 +175,7 @@ Berrl's strength lies more in its simplicity then its complexity. Berrl allows y
 **I reserve the right to use as tacky colors as I please. Eventually more will be added later.**
 
 ##### Implementing a cool map of Baltimore 911 calls
+This csv file was about 1.2 million lines
 **Due to combined location fields I had to clean this csv file iterating through it once and removing in points lacking lat/long values while I was at it (Normally just plotted at 0,0)**
 ```python
 import berrl as bl
@@ -219,3 +220,4 @@ print file_dictionary
 bl.loadparsehtml(bl.collect(),key,legend=legend,file_dictionary=file_dictionary)
 ```
 
+![](link)
