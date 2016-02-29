@@ -282,6 +282,6 @@ print file_dictionary
 bl.loadparsehtml(bl.collect(),key,file_dictionary=file_dictionary)
 ```
 **Below shows the a line string network making the coal fields more colorful!**
-![]()
+![](https://cloud.githubusercontent.com/assets/10904982/13400697/f9a73aaa-ded6-11e5-922a-b83efe5561a8.png)
 
 
