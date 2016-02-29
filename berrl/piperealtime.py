@@ -132,7 +132,7 @@ def making_blockstr2(varblock,count,colorline,element,time):
         onEachFeature: function(feature, layer) {""" % count
 
 	end="""
-	            layer.bindPopup(popupText, {autoPan:false} ); }
+	            layer.bindPopup(popupText, {autoPan:false, maxHeight:500, maxWidth:350} ); }
         });
     	dataLayer.addTo(map);\n\t\tsetTimeout(function() {\n\t\t\t\tdataLayer.clearLayers();\n\t\t},%s);\n\t}\n}\nsetInterval(add%s,%s)""" % (time,count,time)
     	total=''

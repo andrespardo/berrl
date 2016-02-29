@@ -243,6 +243,7 @@ def make_bindings_type(filenames,color_input,colorkey,file_dictionary):
 		count+=1
 		filename=row
 		with open(row) as data_file:    
+			print row
    			data = json.load(data_file)
    		#pprint(data)
    		data=data['features']
@@ -289,14 +290,13 @@ def make_bindings_type(filenames,color_input,colorkey,file_dictionary):
 
 
 # makes the corresponding styled html for the map were about to load
-def make_html(filenames,color_input,colorkey,apikey,file_dictionary):
+def make_html(filenames,color_input,colorkey,apikey,file_dictionary,legend):
 	block="""<html>
 <head>
 <meta charset=utf-8 />
 <title>PipeGeoJSON Demo</title>
 <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
 <script src="https://api.mapbox.com/mapbox.js/v2.2.4/mapbox.js"></script>
-
 
 
 <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
@@ -312,6 +312,9 @@ table, th, td {
     border: 1px solid black;
 }
 </style>
+
+
+xxxxx
 
 
 <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.2.0/leaflet-omnivore.min.js'></script>
@@ -339,13 +342,13 @@ var map = L.mapbox.map('map', 'mapbox.streets',{
 
 
 
-\n""".replace('pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A',apikey)+make_bindings_type(filenames,color_input,colorkey,file_dictionary)+"""\n</script>
+\n""".replace('pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A',apikey)+make_bindings_type(filenames,color_input,colorkey,file_dictionary)+check_legend(legend)+"""\n</script>
 
 
 </body>
 </html>"""
 	
-	return block
+	return block.replace('xxxxx',create_legend(legend[0],legend[1],legend[2]))
 
 # get colors for just markers
 def get_colors(color_input):
@@ -399,6 +402,7 @@ def loadparsehtml(filenames,apikey,**kwargs):
 	colorkey=''
 	frame=False
 	file_dictionary=False
+	legend=['','','']
 
 
 
@@ -412,8 +416,10 @@ def loadparsehtml(filenames,apikey,**kwargs):
 				frame=True
 		if key=='file_dictionary':
 			file_dictionary=value
+		if key=='legend':
+			legend=value
 
-	block=make_html(filenames,color,colorkey,apikey,file_dictionary)
+	block=make_html(filenames,color,colorkey,apikey,file_dictionary,legend)
 	if frame==True:
 		with open('index.html','w') as f:
 			f.write(block)
@@ -430,4 +436,55 @@ def collect():
 	        if x.endswith(".geojson"):
 	        	jsons.append(x)
 	return jsons
+
+def make_top():
+	return '''<style>
+.legend label,
+.legend span {
+  display:block;
+  float:left;
+  height:15px;
+  width:20%;
+  text-align:center;
+  font-size:9px;
+  color:#808080;
+  }
+</style>'''
+
+def make_legend(title,colors,labels):
+	colorhashs=[]
+	for row in colors:
+		colorhashs.append(get_colors(row))
+	return '''
+<div id='legend' style='display:none;'>
+  <strong>%s</strong>
+  <nav class='legend clearfix'>
+    <span style='background:%s;'></span>
+    <span style='background:%s;'></span>
+    <span style='background:%s;'></span>
+    <span style='background:%s;'></span>
+    <span style='background:%s;'></span>
+    <label>%s</label>
+    <label>%s</label>
+    <label>%s</label>
+    <label>%s</label>
+    <label>%s</label>
+    <small>Source: <a href="https://github.com/murphy214/berrl">Made using Berrl</a></small>
+</div>
+''' % (title,colorhashs[0],colorhashs[1],colorhashs[2],colorhashs[3],colorhashs[4],labels[0],labels[1],labels[2],labels[3],labels[4])
+
+
+def create_legend(title,colors,labels):
+	if not title=='':
+		return make_top()+'\n'+make_legend(title,colors,labels)
+	else:
+		return ''
+
+def check_legend(legend):
+	if legend[0]=='':
+		return ''
+	else:
+		return 'var map2 = map.legendControl.addLegend(document.getElementById("legend").innerHTML);'
+
+
 
