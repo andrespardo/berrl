@@ -145,17 +145,17 @@ Since I'm not serving any tiles, I don't care what you do. I use this ALL the ti
 
 **TL:DR If your doing a lot of decimal distance calculations followed by distance querries try this module out. You could turn a nightmare into a tutorial list comphension**
 
-# Pipehtml/Piperealtime
+##### Pipehtml/Piperealtime
 Pipehtml/piperealtime have been explained quite extensively the functions however have not.
 * loadparsehtml(geojsons,apikey,**kwargs)
- * geojson is a list of geojson elements in the current directory to be loaded can also use collect() function
+ * geojsons is a list of geojson elements in the current directory to be loaded can also use collect() function
  * apikey is the mapbox apikey
  * **colorkey is the field in all dataframes that represents the color to be styled
  * **file_dictionary dictionary with syntax {filename:color} for all geojsons with a unique style
 * loadparsehtmlrealtime(geojsons,apikey,**kwargs)
  * **kwargs can accept time interval to refresh geojsons by default 2 seconds. 
 
-#### How to use Berrl 
+##### How to use Berrl 
 Berrl's strength lies more in its simplicity then its complexity. Berrl allows you to make geojson elements, you either collect them in a list or use the collect() function to open up every geojson file in the directory and it automatically parses the JS/HTML so that element features are inserted into the popup window. Berrl also allows for a few more things abstractions from this, for example to style by color for each geojson element you have two options. 
 * Insert a column within the dataframe making sure to keep the same column field name for every dataframe then input a colorkey=column header kwarg in parseloadhtml() or parseloadhtmlrealtime() 
 * passing in a dictionary with the **filenames as the key** and the colors as the value to look up, this dictionary doesn't have to be the length of the geojson list it can just be a specific portion of geojsons, the rest will be assumed to be the default (blue) 
@@ -174,6 +174,48 @@ Berrl's strength lies more in its simplicity then its complexity. Berrl allows y
  
 **I reserve the right to use as tacky colors as I please. Eventually more will be added later.**
 
+##### Implementing a cool map of Baltimore 911 calls
+**Due to combined location fields I had to clean this csv file iterating through it once and removing in points lacking lat/long values while I was at it (Normally just plotted at 0,0)**
+'''python
+import berrl as bl
+import numpy as np
+import pandas as pd
+import itertools
 
+key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+data=bl.read('cleaned_baltimore.csv')
 
+bl.map_table(data,6,list=True)
+
+# reading square table into memory 
+squares=pd.read_csv('squares6.csv')
+maximum=squares['COUNT'].max()
+
+factor=maximum/5
+oldfactor=0
+count=0
+factors=[.5*factor,1.25*factor,1.5*factor,2*factor,2.5*factor]
+colors=['blue','light blue','light green','yellow','red']
+# iterating through heat map factors slicing through each one
+for a,b in itertools.izip(colors,factors):
+	count+=1
+	filename=str(count)+'.geojson'
+	if oldfactor==0: #starting dictionary off in the beginning 
+		file_dictionary={filename:a}
+	else:
+		print filename,a,file_dictionary
+		file_dictionary[filename]=str(a)
+	if factors[-1]==b:
+		temp=squares[squares.COUNT>oldfactor]
+	else:
+		temp=squares[(squares.COUNT>oldfactor)&(squares.COUNT<b)]
+	bl.make_blocks(temp,list=True,filename=filename)
+	oldfactor=b
+
+#creating legend to send into html parser
+legend=['911 Caller Incident Frequency in Baltimore',colors,factors]
+
+print file_dictionary
+bl.loadparsehtml(bl.collect(),key,legend=legend,file_dictionary=file_dictionary)
+'''
 
