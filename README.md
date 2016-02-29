@@ -68,6 +68,7 @@ One of the main annoyances of geospatial data is it can be nasty to work with so
 ```python
 import berrl as bl
 import numpy as np
+import pandas as pd
 
 key='your api key'
 
