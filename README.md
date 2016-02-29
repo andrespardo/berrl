@@ -176,7 +176,7 @@ Berrl's strength lies more in its simplicity then its complexity. Berrl allows y
 
 ##### Implementing a cool map of Baltimore 911 calls
 **Due to combined location fields I had to clean this csv file iterating through it once and removing in points lacking lat/long values while I was at it (Normally just plotted at 0,0)**
-'''python
+```python
 import berrl as bl
 import numpy as np
 import pandas as pd
@@ -217,5 +217,5 @@ legend=['911 Caller Incident Frequency in Baltimore',colors,factors]
 
 print file_dictionary
 bl.loadparsehtml(bl.collect(),key,legend=legend,file_dictionary=file_dictionary)
-'''
+```
 
