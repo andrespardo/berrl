@@ -227,7 +227,7 @@ bl.loadparsehtml(bl.collect(),key,legend=legend,file_dictionary=file_dictionary)
 ```python
 import berrl as bl
 import itertools
-key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+key='your api key'
 # making all geojson
 bl.make_points('sharks.csv',filename='sharks.geojson')
 bl.make_line('line_example.csv',filename='line.geojson')
