@@ -182,7 +182,7 @@ import numpy as np
 import pandas as pd
 import itertools
 
-key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+key='your api key'
 data=bl.read('cleaned_baltimore.csv')
 
 bl.map_table(data,6,list=True)
