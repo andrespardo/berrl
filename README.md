@@ -71,9 +71,12 @@ import numpy as np
 
 key='your api key'
 
+line=pd.read_csv('line_example.csv')
+points=pd.read_csv('points_example.csv')
+
 # makes the file if given the kwarg filename for any make function
-bl.make_line('line_example.csv',filename='line.geojson')
-bl.make_points('points_example.csv',filename='points.geojson')
+bl.make_line(line,list=True,filename='line.geojson')
+bl.make_points(points,list=True,filename='points.geojson')
 
 bl.loadparsehtml(bl.collect(),key) # collects all the geojsons that exist in the current directory 
 ```
