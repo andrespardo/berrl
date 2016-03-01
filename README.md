@@ -135,8 +135,8 @@ bl.loadparsehtml(bl.collect(),key)
 Berrl's strength is its sparse structure. Berrl has 4 main functions for geojson creation:
 * make_line(table,**kwargs)
 * make_polygon(table,**kwargs)
-* make_points(table,**kwargs) **notice the s's!**
-* make_blocks(table,**kwargs) **notice the s's!**
+* make_points(table,**kwargs) ''notice the s's!''
+* make_blocks(table,**kwargs) ''notice the s's!''
 
 By default all these make_ functions assume your inputting a csv file, if not and its a list/dataframe input the kwarg "list=True". These functions by default return a list of lines to be written to a geojson file. However if you wish to write out the geojson file on the spot the kwarg for the filename location is "filename" so simply set filename equal to wherever you wish to write out the geojson.
 
@@ -262,7 +262,7 @@ import numpy as np
 import berrl as bl
 import itertools
 import random
-key='pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A'
+key='your api key'
 
 # random colors put into the dictionary 
 colors=['light green', 'blue', 'red', 'yellow', 'light blue', 'orange', 'purple', 'green', 'brown', 'pink', 'default']
