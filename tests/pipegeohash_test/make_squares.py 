@@ -1,0 +1,14 @@
+import berrl as bl
+import pandas as pd
+from shutil import copyfile
+
+data=pd.read_csv('points_example.csv')
+
+count=0
+while not count==8:
+	count+=1
+	table=bl.map_table(data,count,list=True)
+	table.to_csv('table_datum/table'+str(count)+'.csv')
+	newsquares=pd.read_csv('squares'+str(count)+'.csv')
+	copyfile('squares'+str(count)+'.csv','squares_datum/testsquares'+str(count)+'.csv')
+

@@ -1,47 +1,64 @@
-# testing the output of the pipegeohash module against competing input methods
 import berrl as bl
+import pandas as pd
 import itertools
 
-# inputing a csv file location for test
-hashedtable1=bl.map_table('sharks.csv',5)
 
-# reading output csv table to memory as it will be overwritten in the next test
-squaretable1=bl.read('squares5.csv')
+data=pd.read_csv('points_example.csv')
 
-#inputing a list for test 
-#first reading list to memory
-testlist=bl.read('sharks.csv')
-hashedtable2=bl.map_table(testlist,5,list=True)
-
-# reading output csv table to memory as it will be overwritten in the next test
-squaretable2=bl.read('squares5.csv')
-
-# testing each square table against each other
+count=0
 ind=0
-for a,b in itertools.izip(squaretable1,squaretable2):
-	if not a==b:
-		ind=1
+while not count==8:
+	count+=1
+	# making table associated with a specific presicion
+	newtable=bl.map_table(data,count,list=True)
 
-# carrying the passing of square status down to the test for the hashed table test
+	
+
+	#taking output to table and reading back into memory
+	newtable.to_csv('table'+str(count)+'.csv')
+	newtable=pd.read_csv('table'+str(count)+'.csv')
+	
+	# taking new table from a dataframe to a list
+	newtable=bl.df2list(newtable)
+	
+	# reading table to test into memory 
+	testtable=pd.read_csv('table_datum/table'+str(count)+'.csv')
+
+	# taking test table to list
+	testtable=bl.df2list(testtable)
+
+	# testing every row in tables for 
+	for a,b in itertools.izip(newtable,testtable):
+		if not a==b:
+			ind=1
+			print 'Row New: %s, Row Old: %s' % (a,b)
+
+	if ind==0:
+		print 'Table size: %s Test Passed' % count
+
+	# now testing the square size return on each geohash to see that passes as well
+	
+	# getting old squares
+	oldsquares=pd.read_csv('squares_datum/testsquares'+str(count)+'.csv')
+
+	# getting new squares
+	newsquares=pd.read_csv('squares'+str(count)+'.csv')
+
+	# taking both to lists
+	oldsquares=bl.df2list(oldsquares)
+	newsquares=bl.df2list(newsquares)
+
+	# testing every row in squares
+	for a,b in itertools.izip(newsquares,oldsquares):
+		if not a==b:
+			ind=1
+			print 'Row New: %s, Row Old: %s' % (a,b)
+
+	if ind==0:
+		print 'Square size: %s Test Passed' % count
+
 if ind==0:
-	passing=0
-else:
-	passing=1
-
-# testing each hashed table against each other
-ind=0
-for a,b in itertools.izip(hashedtable1,hashedtable2):
-	if not a==b:
-		ind=1
-
-# carrying the passing of square status down to the test for the hashed table test
-if ind==0 and passing==0:
-	passing=0
-else:
-	passing=1
-
-# printing output result
-if passing==0:
 	print 'pipegeohash build passed'
-else:
-	print 'pipegeohash build failed'
+
+
+

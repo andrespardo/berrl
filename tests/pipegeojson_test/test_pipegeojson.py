@@ -18,6 +18,7 @@ for a,b in itertools.izip(line1,line2):
 # carrying the passing of status down to the test for the rest
 if ind==0:
 	passing=0
+	print 'pipegeojson line test passed'
 else:
 	passing=1
 
@@ -37,6 +38,7 @@ for a,b in itertools.izip(points1,points2):
 # carrying the passing of status down to the test for the rest
 if ind==0 and passing==0:
 	passing=0
+	print 'pipegeojson points test passed'
 else:
 	passing=1
 
@@ -56,6 +58,7 @@ for a,b in itertools.izip(blocks1,blocks2):
 # carrying the passing of status down to the test for the rest
 if ind==0 and passing==0:
 	passing=0
+	print 'pipegeojson blocks test passed'
 else:
 	passing=1
 
@@ -75,6 +78,7 @@ for a,b in itertools.izip(polygon1,polygon2):
 # carrying the passing of status down to the test for the rest
 if ind==0 and passing==0:
 	passing=0
+	print 'pipegeojson polygon test passed'
 else:
 	passing=1
 
