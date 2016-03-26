@@ -16,8 +16,6 @@ def make_rows(headers):
 
 # the function actually used to make the styles table
 def make_rows2(headers):
-
-
 	varblock=[]
 	# makes a list of rows from a given input header
 	for row in headers:
@@ -37,8 +35,6 @@ def make_rows2(headers):
 
 # experimenting with dierent popups
 def make_rows5(headers):
-
-
 	varblock=[]
 	# makes a list of rows from a given input header
 	for row in headers:
@@ -135,75 +131,6 @@ def make_bindings2(headers,count,colorline,element):
 	block=making_blockstr2(varblock,count,colorline,element)	
 	return block
 
-'''
-# depricated function that use to makethe html
-def make_html_block(headers,filenames):
-	string="""<!DOCTYPE html>
-<html>
-<head>
-<meta charset=utf-8 />
-<title>PipeGeoJSON Demo</title>
-<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-<script src="https://api.mapbox.com/mapbox.js/v2.2.4/mapbox.js"></script>
-
-
-
-<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
-<link href='https://api.mapbox.com/mapbox.js/v2.2.4/mapbox.css' rel='stylesheet' />
-<style>
-  body { margin:0; padding:0; }
-  #map { position:absolute; top:0; bottom:0; width:100%; }
-</style>
-</head>
-<body>
-<style>
-table, th, td {
-    border: 1px solid black;
-}
-</style>
-
-
-<script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.2.0/leaflet-omnivore.min.js'></script>
-
-<div id='map'></div>
-
-<script>
-L.mapbox.accessToken = 'pk.eyJ1IjoibXVycGh5MjE0IiwiYSI6ImNpam5kb3puZzAwZ2l0aG01ZW1uMTRjbnoifQ.5Znb4MArp7v3Wwrn6WFE6A';
-var map = L.mapbox.map('map', 'mapbox.streets',{
-    center: [-86.508316670, 32.67305000],
-    zoom: 8
-    });
-
-// omnivore will AJAX-request this file behind the scenes and parse it: 
-
-// note that there are considerations:
-// - The file must either be on the same domain as the page that requests it,
-//   or both the server it is requested from and the user's browser must
-//   support CORS.
-
-// Internally this uses the toGeoJSON library to decode the KML file
-// into GeoJSON
-
-
-
-
-function addDataToMap(data, map) {
-    var dataLayer = L.geoJson(data);
-    dataLayer.addTo(map);
-}
-
-"""	
-	for row in filenames:
-		loc="""$.getJSON('http://localhost:8000/%s',function(data) { addDataToMap(data,map); });""" % (row)
-		string+=loc
-	return string+make_bindings(headers)+"""\n</script>
-
-
-</body>
-</html>"""
-	a=make_html_block(headers,'index.html')
-'''
-
 #writes text file to given location 
 def writetxt(data,location):
 	with open(location,'w') as f:
@@ -243,7 +170,6 @@ def make_bindings_type(filenames,color_input,colorkey,file_dictionary):
 		count+=1
 		filename=row
 		with open(row) as data_file:    
-			print row
    			data = json.load(data_file)
    		#pprint(data)
    		data=data['features']
@@ -388,7 +314,7 @@ def get_colors2(color_input):
 
 # get colorline for marker
 def get_colorline_marker(color_input):
-	colorline="""				layer.setIcon(L.mapbox.marker.icon({'marker-color': '%s'}))""" % get_colors(color_input)
+	colorline="""				layer.setIcon(L.mapbox.marker.icon({'marker-color': '%s','marker-size': 'small'}))""" % get_colors(color_input)
 	return colorline
 
 # get colorline for non-marker objects

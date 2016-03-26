@@ -243,7 +243,6 @@ def make_bindings_type(filenames,color_input,colorkey,file_dictionary):
 		count+=1
 		filename=row
 		with open(row) as data_file:    
-			print row
    			data = json.load(data_file)
    		#pprint(data)
    		data=data['features']

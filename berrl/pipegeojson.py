@@ -1,14 +1,7 @@
 '''
-Module: pipegeojson.py 
+Module: pipegeojson.py
 
-A module to convert csv files representing geospatial features into appropriate geojson structures
-
-Functions to be used:
-1) read(location) - reads csv file to memory
-2) get_cords_line(csvfile) - fault tolerant attempts to look at header in first row to get lat long structure within rows
-3) get_segment_info(cordfile) - given a csv file and any unique identifier within a row will get data to be added in a format ready to go into akml
-4) make_line(csvfile,**kwargs) - makes line object in geojson
-5) 
+A module to convert csv, list, or dataframes files representing geospatial features  
 
 Created by: Bennett Murphy
 email: murphy214@marshall.edu
@@ -16,6 +9,7 @@ email: murphy214@marshall.edu
 
 import json
 import itertools
+import geohash
 import pandas as pd
 import numpy as np
 import os
@@ -29,6 +23,39 @@ def read(file):
 	for row in f:
 		data.append(row)
 	return data
+
+
+#gets lat and long for polygons and lines in postgis format
+def get_lat_long_align(header,extendrow):
+	count=0
+	newheader=[]
+	newvalues=[]
+	for a,b in itertools.izip(header,extendrow):
+		if a=='st_asewkt':
+			geometrypos=count
+		elif a=='geom':
+			pass
+		else:
+			newheader.append(a)
+			newvalues.append(b)
+		count+=1	
+	
+	# parsing through the text geometry to yield what will be rows
+	geometry=extendrow[geometrypos]
+	geometry=str.split(geometry,'(')
+	geometry=geometry[-1]
+	geometry=str.split(geometry,')')
+	geometry=geometry[:-2][0]
+	geometry=str.split(geometry,',')
+
+	coords=[]
+
+	for row in geometry:
+		row=str.split(row,' ')
+		long=float(row[0])
+		lat=float(row[1])
+		coords.append([long,lat])
+	return coords
 
 
 #insert file name to get cordinates from
@@ -186,7 +213,7 @@ def get_cords_line(a):
 
 #given a csv file and any unique identifier within a row will get data to be added in a format ready to go into akml
 #assumes the field name will be the corresponding title int he first (i.e. the header row)
-def get_segment_info(data):
+def get_segment_info(data,postgis):
 	csvfile=''
 	uniqueindex=''
 	list=False
@@ -203,11 +230,18 @@ def get_segment_info(data):
 	if csvfile=='' and uniqueindex=='':
 		header=segment[0]
 		firstrow=segment[1]
-		lastrow=segment[-1]
+		headerrow=[]
+		lastrow=[]
 
-		for firstval,lastval,headerval in itertools.izip(firstrow,lastrow,header):
-			if firstval==lastval:
-				info.append([headerval,firstval])
+		for firstval,headerval in itertools.izip(firstrow,header):
+			if not postgis==True:
+				lastrow.append(firstval)
+				headerrow.append(headerval)
+			else:
+				if not 'geom' in str.lower(headerval) and not 'st_asewkt' in str.lower(headerval):
+					lastrow.append(firstval)
+					headerrow.append(headerval)
+		header=headerrow
 
 	else:
 		#setting up generators and getting header
@@ -224,17 +258,26 @@ def get_segment_info(data):
 						genuniqueindex=str(row)
 		
 		#iterating through both header info and segment info to yield a list of both
-		info=[]
+		lastrow=[]
+		headerrow=[]
 		for headerval,segmentval in itertools.izip(header,segmentrow):
-			info.append([headerval,segmentval])
-		lastrow=segmentrow
+			if not postgis==True:
+				headerrow.append(headerval)
+				lastrow.append(segmentval)
+			else:
+				if not 'geom' in str.lower(headerval) and not 'st_asewkt' in str.lower(headerval):
+					headerrow.append(headerval)
+					lastrow.append(segmentval)
+
+		header=headerrow
 	newrow=[]
+
 	for row in lastrow:
 		if 'NAN'in str(row).upper():
 			row=str(row).upper()
 		newrow.append(row)
-	lastrow=newrow
 
+	lastrow=newrow
 	return [header,lastrow]
 
 
@@ -247,6 +290,7 @@ def make_line(csvfile,**kwargs):
 	jsonz=False
 	outfilename=False
 	remove_squares=False
+	postgis=False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key=='strip':
@@ -262,6 +306,9 @@ def make_line(csvfile,**kwargs):
 				outfilename=str(value)
 			elif key=='filename':
 				filename=str(value)
+			elif key=='postgis':
+				if value==True:
+					postgis=True
 
 	# handling if input is a list or dataframe
 	if list==True:
@@ -273,18 +320,21 @@ def make_line(csvfile,**kwargs):
 	#changing dataframe to list if dataframe
 	if isinstance(a,pd.DataFrame):
 		a=df2list(a)
-	count=0
-	coords=[]
-	newnewrow=[]
-	for row in get_cords_line(a):
-		if count==0:
-			count=0
-			newrow=[row[0],row[1]]
-			coords.append(newrow)
+	
+	if postgis==True:
+		coords=get_lat_long_align(a[0],a[1])
+	else:
+		count=0
+		coords=[]
+
+		for row in get_cords_line(a):
+			if count==0:
+				count=0
+				newrow=[row[0],row[1]]
+				coords.append(newrow)
 
 
-
-	z=get_segment_info(a)
+	z=get_segment_info(a,postgis)
 	#print json.dumps(dict(zip(['geometry: '],[dict(zip(['type: ','coordinates: '],['MultiLineString',[coords[:10]]]))])),indent=4)
 
 
@@ -312,6 +362,7 @@ def make_line(csvfile,**kwargs):
 		parselist(gf,filename)
 	else:
 		return gf
+
 
 #from a row and a given header returns a point with a lat, elevation
 def getlatlong(row,header):
@@ -431,13 +482,10 @@ def make_points(csvfile,**kwargs):
 			new=['\t{ "type": "Feature",']+new[2:-1]+['\t},']
 			total+=new
 
-
-
+	# adding finishing lines
 	readytowrite=start+total[:-1]+['\t}','\t]','}']
 
-
-
-
+	# logic for writing to filename if given
 	if not filename==False:
 		parselist(readytowrite,filename)
 	else:
@@ -451,6 +499,7 @@ def parselist(list,location):
 	f.close()
 	print 'GeoJSON file written to location: %s' % location
 
+
 # function for converting squares table to geojsonfile
 def convertcsv2json(data,filename,**kwargs):
 	shape=False
@@ -462,7 +511,6 @@ def convertcsv2json(data,filename,**kwargs):
 			if key=='shape':
 				if value==True:
 					shape=True
-
 
 	#creating a list
 	newlist=[]
@@ -477,7 +525,6 @@ def convertcsv2json(data,filename,**kwargs):
 	elif shape==True:
 		newlist.append(json.dumps(dict(zip(header,data[1])),indent=2))
 
-
 	#getting json filename
 	if '/' in filename:
 		filename=str.split(filename,'/')[1]
@@ -485,6 +532,7 @@ def convertcsv2json(data,filename,**kwargs):
 	newfilename=str.split(filename,'.')[0]+'.json'
 
 	parselist(newlist,newfilename)
+
 
 #given a set of table data returns the lat and longs associated with said tables
 def getlatlongs(data):
@@ -622,12 +670,15 @@ def make_blocks(csvfile,**kwargs):
 		new=['\t{ "type": "Feature",']+new[2:-1]+['\t},']
 		total+=new
 
+	# adding finishing syntax to geojson
 	readytowrite=start+total[:-1]+['\t}','\t]','}']
 
+	# logic for writing out to a filename
 	if not filename==False:
 		parselist(readytowrite,filename)
 	else:
 		return readytowrite
+
 
 #makes a geojson line from a csv file or tabular list
 def make_polygon(csvfile,**kwargs):
@@ -638,6 +689,7 @@ def make_polygon(csvfile,**kwargs):
 	outfilename=False
 	remove_squares=False
 	filename=False
+	postgis=False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key=='strip':
@@ -653,8 +705,11 @@ def make_polygon(csvfile,**kwargs):
 				outfilename=str(value)
 			elif key=='filename':
 				filename=str(value)
+			elif key=='postgis':
+				if value==True:
+					postgis=True
 
-
+	# logic for if it is a csv file or list/dataframe
 	if list==True:
 		a=csvfile
 		csvfile=outfilename
@@ -664,38 +719,46 @@ def make_polygon(csvfile,**kwargs):
 	#changing dataframe to list if dataframe
 	if isinstance(a,pd.DataFrame):
 		a=df2list(a)
-	count=0
-	coords=[]
-	newnewrow=[]
-	for row in get_cords_line(a):
-		if count==0:
-			count=0
-			newrow=[row[0],row[1]]
-			coords.append(newrow)
+	
+	# coordinate collection 
+	if postgis==True:
+		coords=get_lat_long_align(a[0],a[1])
+	else:
+		count=0
+		coords=[]
 
-	z=get_segment_info(a)
-	#print json.dumps(dict(zip(['geometry: '],[dict(zip(['type: ','coordinates: '],['MultiLineString',[coords[:10]]]))])),indent=4)
+		for row in get_cords_line(a):
+			if count==0:
+				count=0
+				newrow=[row[0],row[1]]
+				coords.append(newrow)
+
+	# info collection
+	z=get_segment_info(a,postgis)
+	# print json.dumps(dict(zip(['geometry: '],[dict(zip(['type: ','coordinates: '],['MultiLineString',[coords[:10]]]))])),indent=4)
 
 
-	#getting properties
+	# getting properties
 	a1=dict(zip(['properties'],['']))
 	a2=dict(zip(z[0],z[1]))
 	a3=dict(zip(['properties'],[a2]))
 
-
-	#as of now witch craft that works
+	# as of now witch craft that works
 	c1=['geometry','properties']
 	c2=dict(zip(['type','coordinates'],['Polygon', [coords]]))
 	c=dict(zip(['type'],['Feature']))
 	f=dict(zip(['type'],['FeatureCollection']))
 
-	#as of now witchcraft that works
+	# as of now witchcraft that works
 	e=dict(zip(c1,[c2,a2]))
 	new=json.dumps(c,indent=7)[:-1]+json.dumps(e,indent=7)[2:]
 	beg=['{ "type": "FeatureCollection",',
     '\t"features": [','  {  "type": "Feature",']
+	
+	# adding finishing lines to geojson
 	gf=beg+[new[27:-1]]+['\t}','\t]']+[new[-1:]]
 
+	# logic for writing out to filename
 	if not filename==False:
 		parselist(gf,filename)
 	else:
@@ -715,9 +778,18 @@ def get_geojsons():
 	        	jsons.append(x)
 	return jsons
 
+# collecting geojson files in a list 
+def collect():
+	jsons=[]
+	for dirpath, subdirs, files in os.walk(os.getcwd()):
+	    for x in files:
+	        if x.endswith(".geojson"):
+	        	jsons.append(x)
+	return jsons
+
 #cleans the current of geojson files (deletes them)
 def clean_current():
-	jsons=get_geojsons()
+	jsons=collect()	
 	for row in jsons:
 		os.remove(row)
 
@@ -748,7 +820,7 @@ def fromdataframecollection(x):
 
 	if featuretype=='points':
 		a=make_points(dataframe,list=True)
-	elif featuretype=='line':
+	elif featuretype=='lines':
 		a=make_line(dataframe,list=True)
 	elif featuretype=='blocks':
 		a=make_blocks(dataframe,list=True)
@@ -757,5 +829,387 @@ def fromdataframecollection(x):
 
 	parselist2(a,filename)
 	return 0
+
+# makes lines for a postgis database
+def make_postgis_lines(table,filename,**kwargs):
+	#changing dataframe to list if dataframe
+	if isinstance(table,pd.DataFrame):
+		table=df2list(table)
+	header=table[0]
+
+	count=0
+	for row in table[1:]:
+		count+=1
+		try:
+			if row==table[1]:
+				value=make_line([header,row],list=True,postgis=True)
+				if not len(table)==2:
+					value=value[:-3]
+					totalvalue=value+['\t},']
+			
+			elif row==table[-1]:
+				value=make_line([header,row],list=True,postgis=True)
+				value=value[2:]
+				totalvalue=totalvalue+value
+			else:
+				value=make_line([header,row],list=True,postgis=True)
+				value=value[2:-3]
+				value=value+['\t},']
+				totalvalue=totalvalue+value
+		except Exception:
+			print 'pass'
+
+	parselist(totalvalue,filename)
+
+# makes polygons for a postgis database
+def make_postgis_polygons(table,filename,**kwargs):
+	# changing dataframe to list if dataframe
+	# still needs some work
+	if isinstance(table,pd.DataFrame):
+		table=df2list(table)
+	header=table[0]
+
+	count=0
+	for row in table[1:]:
+		count+=1
+		if row==table[1]:
+			value=make_polygon([header,row],list=True,postgis=True)
+			value=value[:-3]
+			totalvalue=value+['\t},']
+		elif row==table[-1]:
+			value=make_polygon([header,row],list=True,postgis=True)
+			value=value[2:]
+			totalvalue=totalvalue+value
+		else:
+			value=make_polygon([header,row],list=True,postgis=True)
+			value=value[2:-3]
+			value=value+['\t},']
+			totalvalue=totalvalue+value
+	parselist(totalvalue,filename)
+
+#takes a list and turns it into a datafrae
+def list2df(df):
+    df = pd.DataFrame(df[1:], columns=df[0])
+    return df
+
+#takes a dataframe and turns it into a list
+def df2list(df):
+    df = [df.columns.values.tolist()]+df.values.tolist()
+    return df
+
+#function that writes csv file to memory
+def writecsv(data, location):
+    import csv
+    with open(location, 'wb') as f:
+        a = csv.writer(f, delimiter=',')
+        for row in data:
+                if row >= 0:
+                        a.writerow(row)
+                else:
+                        a.writerows(row)
+    print 'Wrote csv file to location: %s' % location
+
+# extends a new table down from a post gis row and header
+def extend_geohashed_table(header,extendrow,precision,**kwargs):
+	count=0
+	newheader=[]
+	newvalues=[]
+	return_dataframe = False
+	for key,value in kwargs.iteritems():
+		if key == 'return_dataframe':
+			if value == True:
+				return_dataframe = True
+
+
+	for a,b in itertools.izip(header,extendrow):
+		if a=='st_asewkt':
+			geometrypos=count
+		elif a=='geom':
+			pass
+		else:
+			newheader.append(a)
+			newvalues.append(b)
+		count+=1
+
+	# adding values to newheader that were in the text geometry
+	newheader=newheader+['LAT','LONG','DISTANCE','GEOHASH']
+	
+	# parsing through the text geometry to yield what will be rows
+	try: 
+		geometry=extendrow[geometrypos]
+		geometry=str.split(geometry,'(')
+		geometry=geometry[-1]
+		geometry=str.split(geometry,')')
+		geometry=geometry[:-2][0]
+		geometry=str.split(geometry,',')
+
+
+		# setting up new table that will be returned as a dataframe
+		newtable=[newheader]
+		for row in geometry:
+			row=str.split(row,' ')
+			distance=float(row[-1])
+			lat=float(row[1])
+			long=float(row[0])
+			try: 
+				hash = geohash.encode(float(lat), float(long), precision)
+				newrow=newvalues+[lat,long,distance,hash]
+				newtable.append(newrow)
+			except Exception:
+				pass
+
+	except Exception:
+		newtable=[['GEOHASH'],['']]
+
+	# taking table from list to dataframe
+	newtable=list2df(newtable)
+
+	if return_dataframe == True:
+		return newtable
+	return np.unique(newtable['GEOHASH']).tolist()
+
+# returning dictionary with a unique identifier and geohashed squares occuring on line vector data
+def make_line_dict(table,precision,position):
+	# where table is dataframe table
+	# where precision is the precision of the geohash
+	# where position is the unique identifier dictioniary integer positon in each row 
+	# return dict entry for each line segment {identifier:[geohash list]}
+	data=table
+
+	if isinstance(data,pd.DataFrame):
+		data=df2list(data)
+	header=data[0]
+
+	count=0
+	for row in data[1:]:
+		temp=extend_geohashed_table(header,row,precision)
+		uniques=np.unique(temp['GEOHASH']).tolist()
+		if count==0:
+			count=1
+			uniquedict={row[position]:uniques}
+		else:
+			uniquedict[row[position]]=uniques
+	return uniquedict
+
+# returning DataFrame with ever geohashed square and every routeid with each one
+def make_line_frame(table,precision,position,**kwargs):
+	# where table is dataframe table
+	# where precision is the precision of the geohash
+	# where position is the unique identifier dictioniary integer positon in each row 
+	# return dict entry for each line segment {identifier:[geohash list]}
+	# csv is a bool that returns a csv file or tries to read a csv file if one is available if not it will create and write one
+	csv = False
+	data=table
+	if kwargs is not None:
+		for key,value in kwargs.iteritems():
+			if key == 'csv':
+				if value == True:
+					csv = True
+
+	# doing dataframe logic
+	if isinstance(data,pd.DataFrame):
+		data=df2list(data)
+	header=data[0]
+	columnheader = header[position]
+	newtable = [['GEOHASH',columnheader]]
+
+	count=0
+	count2=0
+	total=0
+
+	if csv == True:
+		try: 
+			newtable = pd.read_csv('line_frame'+str(precision)+'.csv')
+			return newtable
+		except Exception:
+			print 'No line frame csv file found, creating line frame.'
+	for row in data[1:]:
+		count2+=1
+		uniques = extend_geohashed_table(header,row,precision)
+		temptable = ['GEOHASH']+uniques
+		temptable = pd.DataFrame(temptable[1:], columns=[temptable[0]])
+		temptable[columnheader] = row[position]
+		temptable = df2list(temptable)
+		newtable += temptable[1:]
+		if count2 == 1000:
+			total+=count2
+			count2=0
+			print '[%s/%s]' % (total,len(data))
+
+	if csv == True:
+		writecsv(newtable,'line_frame'+str(precision)+'.csv')
+
+	return list2df(newtable)
+
+# generator for a line dictionary 
+def gen_linedict_keys(linedict):
+	for row in linedict.keys():
+		yield row
+
+# from a line dictionary like the one created above returns the first instance of a geohash being found within 
+# any of the dictionary entries
+def get_uniqueid_linedict(linedict,geohash):
+	nextkey=gen_linedict_keys(linedict)
+	found=False
+	while found==False:
+		try: 
+			key=next(nextkey)
+			linedictlist=linedict[key]
+			for row in linedictlist:
+				if row==geohash:
+					found=True
+					uniqueid=key
+					return uniqueid
+		except Exception:
+			return ''
+
+# concatenates two like dataframes
+def concatenate_tables(table1,table2):
+	header1 = table1.columns.tolist()
+	header2 = table2.columns.tolist()
+	frames = [table1,table2]
+
+	if header1 == header2:
+		data = pd.concat(frames)
+		return data
+
+
+# bind a geohashed table of occurances to vector data by unique column input
+def bind_geohashed_data_dict(uniqueid,linedict,geohashed_table,vector_database):
+	data = vector_database
+	# iterating through each traffic fatility and getting route
+	total = [[uniqueid,'COUNT']]
+	uniques=[]
+	for row in df2list(geohashed_table)[1:]:
+		hash = row[-1]
+		unique = get_uniqueid_linedict(linedict,hash)
+		total.append([unique,1])
+		uniques.append(unique)
+
+	total = list2df(total)
+
+	uniques = np.unique(uniques).tolist()
+	# taking away null values returned 
+	if uniques[0] == '':
+		uniques = uniques[1:]
+
+	total = total.groupby([uniqueid],sort=True).sum()
+	total = total.reset_index()
+	total = df2list(total)
+
+	count=0
+	for row in total[1:]:
+		if count == 0:
+			totaldict = {row[0]:row[1]}
+			count=1
+		else: 
+			totaldict[row[0]] = row[1]
+
+	# taking total and creating a new dataframe from uniqueids present
+	total = total[1:]
+	dataheader = data.columns.tolist()
+	data['BOOL'] = data[uniqueid].isin(uniques)
+	data = data[data.BOOL == True]
+	data = data[dataheader]
+	data = df2list(data)
+
+	# setting up header
+	newdata=[data[0] + ['COUNT']]
+
+	# getting uniqueid positon number
+	count=0
+	for row in data[0]:
+		if row == uniqueid:
+			position=count
+		count+=1
+
+	# iterating through data
+	for row in data[1:]:
+		print row
+		key = row[position]
+		value = totaldict[key]
+		newrow = row + [value]
+		newdata.append(newrow)
+
+	# taking back to df
+	newdata = list2df(newdata)
+
+	return newdata
+
+# given a unique column id (column header), a lineframe, and geohashed_data, and a vector database
+# returns a dataframe of aggregated linesegments by count of occurence from geohashed data
+def bind_geohashed_data_frame(uniqueid,lineframe,geohashed_data,vector_database):
+	data = vector_database
+
+	# getting unique geohashs
+	uniques = np.unique(geohashed_data['GEOHASH']).tolist()
+
+	# creating a dataframe with only applicable geohashs to get uniqueids found
+	newdata = querry_multiple(lineframe,'GEOHASH',uniques)
+
+	# grouping by routeid and then creating a dictionary 
+	newdata['COUNT'] = 1 
+	groupeddata = newdata[[uniqueid,'COUNT']]
+	groupeddata = groupeddata.groupby([uniqueid],sort=True).sum()
+	groupeddata = groupeddata.reset_index()
+	uniqueids = np.unique(groupeddata[uniqueid]).tolist()
+	groupeddata = df2list(groupeddata[[uniqueid,'COUNT']])
+
+	# creating a dictionary of grouped data to use the keys to create
+	count=0
+	for row in groupeddata[1:]:
+		if count == 0:
+			totaldict = {str(row[0]):row[1]}
+			count=1
+		else: 
+			totaldict[str(row[0])] = row[1]
+
+	newunique=[]
+	for row in uniqueids:
+		newunique.append(str(row))
+	uniqueids=newunique
+
+	# creating dataframe of vector data using only routeids found
+	specificdata = querry_multiple(data,uniqueid,uniqueids)
+
+	# getting header and adding "COUNT" value
+	header = specificdata.columns.tolist() + ['COUNT']
+
+	# setting up newtable from header
+	newtable = [header]
+
+	# getting uniqueid positon number
+	data = df2list(data)
+	count=0
+	for row in data[0]:
+		if row == uniqueid:
+			position=count
+		count+=1
+
+	# iterating through specific data and adding the appropriate count to each column 
+	for row in df2list(specificdata)[1:]:
+		key = row[position]
+		value = totaldict[key]
+		newrow = row + [value]
+		newtable.append(newrow)
+
+	# taking back to df
+	newtable = list2df(newtable)
+
+	return newtable
+
+
+# this function takes a dataframe table a column header, and a list objects and sets returns only rows
+# containing one of the values in the list in the column header given
+def querry_multiple(table,headercolumn,list):
+	data=table
+	dataheader = data.columns.tolist()
+	data['BOOL'] = data[headercolumn].isin(list)
+	data = data[data.BOOL == True]
+	data = data[dataheader]
+	data.columns = dataheader
+	return data
+
+
 
 
