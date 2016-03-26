@@ -290,8 +290,7 @@ bl.loadparsehtml(bl.collect(),key,file_dictionary=file_dictionary)
 
 
 
-**PostGIS & MultiVector Dataframe Integration**
-
+#### PostGIS & MultiVector Dataframe Integration
 Some features have been added to attempt in aiding typical PostGIS usage. (well at least my usage) The PostGIS integration is really more of a database import as and bringing it in as data frame. From there the output to geojson is pretty easy as well as querying and other transformation or aggregations. (Its just a normal pandas data frame)
 
 That being said there could be issues with the way I access or bring in my PostGIS databases, compared with possibly your typical work flows. So a good rule of thumb is if you have a polygon or alignment store in a PostGIS database, If so bring that data into memory with whatever django or PostGIS framework you use instantiate it as at dataframe with the header yourself, and then the ONLY real constraint from outputting to geojson is ensuring you have a field with the raw (projected lat long) geometry data in your output query. (for me I can access it by simply adding a ST_EKWT(geom) attached to my database query)
@@ -304,8 +303,7 @@ PostGIS Highlights:
 * The 4326 output requires the header value of ‘st_asewkt’
 * Supports data frames and lists
 
-#### Spatial Aggregations Introduced**
-
+#### Spatial Aggregations Introduced
 This isn’t something I’m necessarily supporting as a feature that everyone will use, but I think its awesome, and worth noting at least without explaining in detail. (as its still a working progress) 
 
 **Check out the example below to see how aggregations function.**
@@ -343,5 +341,5 @@ legend = ['Traffic Fatalities by Line Segment',colors,ranges[1:]]
 
 bl.loadparsehtml(bl.collect(),key,file_dictionary=filedict,legend=legend)
 ```
-
+![](https://cloud.githubusercontent.com/assets/10904982/14060536/0537c404-f33e-11e5-90c7-6d7397271509.png)
 
