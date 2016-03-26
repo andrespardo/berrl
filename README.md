@@ -307,7 +307,8 @@ PostGIS Highlights:
 This isn’t something I’m necessarily supporting as a feature that everyone will use, but I think its awesome, and worth noting at least without explaining in detail. (as its still a working progress) 
 
 **Check out the example below to see how aggregations function.**
-Example of Vector Heatmapping/Indexing
+
+#### Example of Vector Heatmapping/Indexing
 In this example I reduce a huge vector of roadway alignments down to roads in which just point occurs and aggregates/binds there total count.
 
 ```python
