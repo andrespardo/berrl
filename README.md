@@ -289,3 +289,59 @@ bl.loadparsehtml(bl.collect(),key,file_dictionary=file_dictionary)
 ![](https://cloud.githubusercontent.com/assets/10904982/13400697/f9a73aaa-ded6-11e5-922a-b83efe5561a8.png)
 
 
+
+**PostGIS & MultiVector Dataframe Integration**
+
+Some features have been added to attempt in aiding typical PostGIS usage. (well at least my usage) The PostGIS integration is really more of a database import as and bringing it in as data frame. From there the output to geojson is pretty easy as well as querying and other transformation or aggregations. (Its just a normal pandas data frame)
+
+That being said there could be issues with the way I access or bring in my PostGIS databases, compared with possibly your typical work flows. So a good rule of thumb is if you have a polygon or alignment store in a PostGIS database, If so bring that data into memory with whatever django or PostGIS framework you use instantiate it as at dataframe with the header yourself, and then the ONLY real constraint from outputting to geojson is ensuring you have a field with the raw (projected lat long) geometry data in your output query. (for me I can access it by simply adding a ST_EKWT(geom) attached to my database query)
+
+Then from there one can simply use the functions make_postgis_lines(lines,filename) or make_postgis_polygons(polygons,filename) to write out geojsons to a file containing multiple vector alignments. **This requires alignment field to header to be ‘st_asewkt’.**
+
+PostGIS Highlights:
+* make functions multi Vectors available 
+* Requires output as geometry 4326 projection
+* The 4326 output requires the header value of ‘st_asewkt’
+* Supports data frames and lists
+
+#### Spatial Aggregations Introduced**
+
+This isn’t something I’m necessarily supporting as a feature that everyone will use, but I think its awesome, and worth noting at least without explaining in detail. (as its still a working progress) 
+
+**Check out the example below to see how aggregations function.**
+Example of Vector Heatmapping/Indexing
+In this example I reduce a huge vector of roadway alignments down to roads in which just point occurs and aggregates/binds there total count.
+
+```python
+import berrl as bl
+import pandas as pd
+key=‘your api key’
+
+# bringing in fatality data
+fatalitydata = pd.read_csv('STSIFARS.csv')
+
+# West Virginia Fatality data
+fatalitydata = fatalitydata[fatalitydata.STANAME == 'WEST VIRGINIA']
+fatalitydata = bl.map_table(fatalitydata,7,list=True) # adds geohash rows
+
+# bringing all routes into memory
+data = bl.get_database('routes')
+
+# creating lineframe
+lineframe = bl.make_line_frame(data,7,1,csv=True)
+
+# making new table binding counts of occurence to each routeid
+newtable = bl.bind_geohashed_data_frame('routeid',lineframe,fatalitydata,data)
+
+# aggregated fatality data is now bound to each consitutent line segment it occured on 
+# making temporal map of fatality density
+colors = ['blue','light blue','light green','yellow','red']
+ranges = [0,1,2,3,5,10]
+filedict = bl.make_object_map(newtable,'COUNT',ranges,colors,'lines')
+
+legend = ['Traffic Fatalities by Line Segment',colors,ranges[1:]]
+
+bl.loadparsehtml(bl.collect(),key,file_dictionary=filedict,legend=legend)
+```
+
+
