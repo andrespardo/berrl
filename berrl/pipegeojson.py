@@ -1059,6 +1059,7 @@ def extend_geohashed_table(header,extendrow,precision,**kwargs):
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # returning dictionary with a unique identifier and geohashed squares occuring on line vector data
 def make_line_dict(table,precision,position):
 	# where table is dataframe table
@@ -1365,6 +1366,8 @@ def make_colorkey_table(table):
 	
 	return newlist
 
+=======
+>>>>>>> origin/master
 
 
 
