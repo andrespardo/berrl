@@ -176,54 +176,8 @@ Berrl's strength lies more in its simplicity then its complexity. Berrl allows y
   * pink
   * default
  
-**I reserve the right to use as tacky colors as I please. Eventually more will be added later.**
 
-##### Implementing a cool map of Baltimore 911 calls
-This csv file was about 1.2 million lines
 
-**Due to combined location fields I had to clean this csv file iterating through it once and removing in points lacking lat/long values while I was at it (Normally just plotted at 0,0)**
-```python
-import berrl as bl
-import numpy as np
-import pandas as pd
-import itertools
-
-key='your api key'
-data=bl.read('cleaned_baltimore.csv')
-
-bl.map_table(data,6,list=True)
-
-# reading square table into memory 
-squares=pd.read_csv('squares6.csv')
-maximum=squares['COUNT'].max()
-
-factor=maximum/5
-oldfactor=0
-count=0
-factors=[.5*factor,1.25*factor,1.5*factor,2*factor,2.5*factor]
-colors=['blue','light blue','light green','yellow','red']
-# iterating through heat map factors slicing through each one
-for a,b in itertools.izip(colors,factors):
-	count+=1
-	filename=str(count)+'.geojson'
-	if oldfactor==0: #starting dictionary off in the beginning 
-		file_dictionary={filename:a}
-	else:
-		print filename,a,file_dictionary
-		file_dictionary[filename]=str(a)
-	if factors[-1]==b:
-		temp=squares[squares.COUNT>oldfactor]
-	else:
-		temp=squares[(squares.COUNT>oldfactor)&(squares.COUNT<b)]
-	bl.make_blocks(temp,list=True,filename=filename)
-	oldfactor=b
-
-#creating legend to send into html parser
-legend=['911 Caller Incident Frequency in Baltimore',colors,factors]
-
-print file_dictionary
-bl.loadparsehtml(bl.collect(),key,legend=legend,file_dictionary=file_dictionary)
-```
 
 ![](https://cloud.githubusercontent.com/assets/10904982/13390608/7f2d39fc-de9d-11e5-9571-02c1cfab477d.png)
 
