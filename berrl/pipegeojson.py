@@ -13,6 +13,7 @@ import geohash
 import pandas as pd
 import numpy as np
 import os
+import datetime
 from IPython.display import IFrame
 
 #function that reads csv file to memory
@@ -26,35 +27,47 @@ def read(file):
 
 
 #gets lat and long for polygons and lines in postgis format
-def get_lat_long_align(header,extendrow):
+def get_lat_long_align(header,extendrow,alignment_field):
 	count=0
 	newheader=[]
 	newvalues=[]
+	geometrypos=-1
 	for a,b in itertools.izip(header,extendrow):
-		if a=='st_asewkt':
+		if a=='st_asewkt' and alignment_field == False:
 			geometrypos=count
 		elif a=='geom':
 			pass
+		elif a==str(alignment_field):
+			geometrypos=count
 		else:
 			newheader.append(a)
 			newvalues.append(b)
 		count+=1	
 	
 	# parsing through the text geometry to yield what will be rows
-	geometry=extendrow[geometrypos]
-	geometry=str.split(geometry,'(')
-	geometry=geometry[-1]
-	geometry=str.split(geometry,')')
-	geometry=geometry[:-2][0]
-	geometry=str.split(geometry,',')
+	try:
+		geometry=extendrow[geometrypos]
+		geometry=str.split(geometry,'(')
+		geometry=geometry[-1]
+		geometry=str.split(geometry,')')
+	except TypeError:
+		return [[0,0],[0,0]] 
+	# adding logic for if only 2 points are given 
+	if len(geometry) == 3:
+		newgeometry = str.split(str(geometry[0]),',')
+		
+	else:
+		newgeometry=geometry[:-2][0]
+		newgeometry=str.split(geometry,',')
 
 	coords=[]
-
-	for row in geometry:
+	for row in newgeometry:
 		row=str.split(row,' ')
 		long=float(row[0])
 		lat=float(row[1])
 		coords.append([long,lat])
+
+
 	return coords
 
 
@@ -291,6 +304,7 @@ def make_line(csvfile,**kwargs):
 	outfilename=False
 	remove_squares=False
 	postgis=False
+	alignment_field=False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key=='strip':
@@ -309,6 +323,8 @@ def make_line(csvfile,**kwargs):
 			elif key=='postgis':
 				if value==True:
 					postgis=True
+			elif key=='alignment_field':
+				alignment_field=value
 
 	# handling if input is a list or dataframe
 	if list==True:
@@ -322,7 +338,7 @@ def make_line(csvfile,**kwargs):
 		a=df2list(a)
 	
 	if postgis==True:
-		coords=get_lat_long_align(a[0],a[1])
+		coords=get_lat_long_align(a[0],a[1],alignment_field)
 	else:
 		count=0
 		coords=[]
@@ -336,7 +352,16 @@ def make_line(csvfile,**kwargs):
 
 	z=get_segment_info(a,postgis)
 	#print json.dumps(dict(zip(['geometry: '],[dict(zip(['type: ','coordinates: '],['MultiLineString',[coords[:10]]]))])),indent=4)
-
+	'''
+	newz = []
+	for row in z:
+		try:
+			json.dumps(zip(dict(row[0],row[1])),2)
+		except TypeError:
+			row =['empty','empty']
+		newz.append(row)
+	z = newz
+	'''
 
 	#getting properties
 	a1=dict(zip(['properties'],['']))
@@ -354,6 +379,7 @@ def make_line(csvfile,**kwargs):
 	#as of now witchcraft that works
 	e=dict(zip(c1,[c2,a2]))
 	new=json.dumps(c,indent=7)[:-1]+json.dumps(e,indent=7)[2:]
+
 	beg=['{ "type": "FeatureCollection",',
     '\t"features": [','  {  "type": "Feature",']
 	gf=beg+[new[27:-1]]+['\t}','\t]']+[new[-1:]]
@@ -443,10 +469,23 @@ def make_points(csvfile,**kwargs):
 	data=a
 	total=[]
 	header=data[0]
+	row1 = data[1]
+	latpos = 0
+	longpos = 0 
+	count = 0
+	# getting the lat and row positions for each row
+	for a,b in itertools.izip(row1,header):
+		if 'LAT' in str(b).upper():
+			latpos = count
+			ind=1
+		elif 'LONG' in str(b).upper():
+			longpos = count
+			ind=1
+		count += 1
+
 	for row in data[1:]:
 		#iterating through each point in file
-		latandlong=getlatlong(row,header)
-		longandlat=[latandlong[1],latandlong[0]]
+		longandlat=[row[longpos],row[latpos]]
 		if not str(longandlat[0]).upper()=='NAN' and not str(longandlat[1]).upper()=='NAN':
 
 			oldrow=row
@@ -638,12 +677,30 @@ def make_blocks(csvfile,**kwargs):
 
 	#getting header
 	header=a[0]
+
+	# checking to see if a header and row value needs to 
+	# be refactored for stripping out unneeded properties
+	newheader = []
+	if strip == True:
+		count = 0
+		for row in header:
+			if 'COLORKEY' in row:
+				newheader.append(row)
+				rowpos = count
+			count += 1
+	else:
+		newheader = header
 	for row in a[1:]:
 		#getting extremas
-		extrema=getextremas([header,row])
+		#extrema=getextremas([header,row])
 
 		#now extrecting the point corners back out to be passed into a geojson file
 		#I realize this is silly 
+		lats = [row[1],row[3],row[5],row[7]]
+		longs = [row[2],row[4],row[6],row[8]]
+		extrema = [min(longs),max(longs),min(lats),max(lats)]
+
+		# assembling points from extrema
 		point1=[extrema[0],extrema[-1]]
 		point2=[extrema[1],extrema[-1]]
 		point3=[extrema[1],extrema[-2]]
@@ -652,8 +709,13 @@ def make_blocks(csvfile,**kwargs):
 		#getting the cords list object from each corner point
 		coords=[[point1,point2,point3,point4,point1]]
 
+		# getting the new row if strip is equal to true
+		if strip == True:
+			row = [row[rowpos]]
+
 		#getting info or properties
-		info=dict(zip(header,row))
+		info=dict(zip(newheader,row))
+
 		
 		#using the same shit tier code that works I did before (this will be fixed)
 		#as of now witch craft that works
@@ -802,9 +864,6 @@ def get_filetype(src,filetype):
 	        	filetypes.append(src+'/'+x)
 	return filetypes
 
-def show(url):
-	return IFrame(url, width=1000, height=600)
-
 #appends a list of lines to a geojson file
 def parselist2(list,location):
 	f=open(location,'w')
@@ -832,34 +891,63 @@ def fromdataframecollection(x):
 
 # makes lines for a postgis database
 def make_postgis_lines(table,filename,**kwargs):
+	alignment_field = False
+	spark_output = False
+	if kwargs is not None:
+		for key,value in kwargs.iteritems():
+			if key == 'alignment_field':
+				alignment_field = value 
+			if key == 'spark_output':
+				spark_output = value
+
 	#changing dataframe to list if dataframe
 	if isinstance(table,pd.DataFrame):
 		table=df2list(table)
 	header=table[0]
 
+	total = []
+	# making table the proper iterable for each input 
+	if spark_output == True:
+		# list for adding feature collection headerr
+		table = sum(table,[])
+	else:
+		table = table[1:]
+
+
+
 	count=0
-	for row in table[1:]:
+	total=0
+	for row in table:
 		count+=1
-		try:
-			if row==table[1]:
-				value=make_line([header,row],list=True,postgis=True)
-				if not len(table)==2:
-					value=value[:-3]
-					totalvalue=value+['\t},']
-			
-			elif row==table[-1]:
-				value=make_line([header,row],list=True,postgis=True)
-				value=value[2:]
-				totalvalue=totalvalue+value
-			else:
-				value=make_line([header,row],list=True,postgis=True)
-				value=value[2:-3]
-				value=value+['\t},']
-				totalvalue=totalvalue+value
-		except Exception:
-			print 'pass'
+		# logic to treat rows as outputs of make_line or to perform make_line operation
+		if spark_output == False:
+			value = make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+		elif spark_output == True:
+			value = row
+
+		# logic for how to handle starting and ending geojson objects
+		if row==table[0]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			if not len(table)==2:
+				value=value[:-3]
+				totalvalue=value+['\t},']
+		
+		elif row==table[-1]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:]
+			totalvalue=totalvalue+value
+		else:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:-3]
+			value=value+['\t},']
+			totalvalue=totalvalue+value
+		if count == 1000:
+			total += count
+			count = 0
+			print '[%s/%s]' % (total,len(table))
 
 	parselist(totalvalue,filename)
+
 
 # makes polygons for a postgis database
 def make_postgis_polygons(table,filename,**kwargs):
@@ -968,6 +1056,9 @@ def extend_geohashed_table(header,extendrow,precision,**kwargs):
 		return newtable
 	return np.unique(newtable['GEOHASH']).tolist()
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 # returning dictionary with a unique identifier and geohashed squares occuring on line vector data
 def make_line_dict(table,precision,position):
 	# where table is dataframe table
@@ -1125,7 +1216,6 @@ def bind_geohashed_data_dict(uniqueid,linedict,geohashed_table,vector_database):
 
 	# iterating through data
 	for row in data[1:]:
-		print row
 		key = row[position]
 		value = totaldict[key]
 		newrow = row + [value]
@@ -1209,6 +1299,71 @@ def querry_multiple(table,headercolumn,list):
 	data = data[dataheader]
 	data.columns = dataheader
 	return data
+
+# hexifies one number into two digits
+# if a number is below 15 and can accounted in 1 digit 
+def hexify2digit(color):
+	color = hex(color)
+	color = str(color)
+	color = color[2:]
+
+	# logic for if the len of color sting is only 1
+	if len(color) == 1:
+		color = '0'+color
+
+	return color
+
+# takes the color codes and turns them into a string of hex color key 
+def hexify(red,green,blue):
+	# red stringified
+	red = hexify2digit(red)
+
+	# green stringified
+	green = hexify2digit(green)
+
+	# blue stringified
+	blue = hexify2digit(blue)
+
+	return '#'+red+green+blue
+
+# gets red green blue positions and returns the corresponding positions in eachrow
+def get_rgb_positions(header):
+	# getting red, green, and blue positon number
+	count = 0
+	for row in header:
+		if row == 'RED':
+			redposition = count
+		elif row == 'GREEN':
+			greenposition = count
+		elif row == 'BLUE':
+			blueposition = count
+		count +=1
+
+
+	return [redposition,greenposition,blueposition]
+
+# maps a pandas table or a python containing colorkeys to corresponding color hexs
+def make_colorkey_table(table):
+	# logic for converting pandas dataframe to list
+	if isinstance(table, pd.DataFrame):
+		table = df2list(table)
+
+
+	header = table[0]
+	newlist = [header+['COLORKEY']]
+
+	redposition,greenposition,blueposition = get_rgb_positions(header)
+
+
+	for row in table[1:]:
+		red,green,blue = row[redposition],row[greenposition],row[blueposition]
+		colorkey = hexify(red,green,blue)
+		newrow = row + [colorkey]
+		newlist.append(newrow)
+
+	newlist = list2df(newlist)
+	
+	return newlist
 
 
 

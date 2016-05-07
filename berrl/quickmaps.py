@@ -4,6 +4,7 @@ from pipegeohash import *
 import pandas as pd
 import numpy as np
 import itertools
+import berrl as bl
 
 def map_axis_unique(dataframe,uniqueaxis,**kwargs):
 	return_filenames=False
@@ -181,7 +182,7 @@ def make_dummy(header,type):
 		dummy=make_dummy_polygons(header)
 	elif type=='points':
 		dummy=make_dummy_points(header)
-	elif type=='blocks':
+	elif type=='blocks' or type == 'spark_blocks':
 		dummy=make_dummy_blocks(header)
 	return dummy
 
@@ -208,17 +209,332 @@ def get_range(table,headercolumn,min,max):
 	temp = table[(table[headercolumn] > min) & (table[headercolumn] <= max)]
 	return temp
 
+# function to create arguments that will be sent into the mapped function
+# where splits is the number of constituent dataframes that will 
+# created from the og
+def make_spark_args(dataframe,splits,**kwargs):
+	lines = False
+	points = False
+	lines_out = False
+	for key,value in kwargs.iteritems():
+		if key == 'lines':
+			lines = value
+		elif key == 'points':
+			points = value
+		elif key == 'lines_out':
+			lines_out = value
+	# splitting up datafraem into multiple
+	frames = np.array_split(dataframe,splits)
+
+	# creating arglist that will be returned 
+	arglist = []
+
+	count = 0
+	# iterating through each dataframe
+	for row in frames:
+		count += 1
+		filename = 'blocks%s.geojson' % str(count)
+		if not points == False:
+			filename = 'points%s.geojson' % str(count)
+		if lines_out == True:
+			filename = 'lines%s.geojson' % str(count)
+
+		if lines == True:
+			arglist.append(row)
+		elif lines_out == True:
+			arglist.append([filename,row])
+		else:	
+			arglist.append([filename,row])
+
+	return arglist
+
+# function that will be mapped 
+# essentially a wrapper for the make_blocks() function
+def map_spark_blocks(args):
+	# parsing args into filename, and dataframe
+	# that will be written to geojson
+	filename,dataframe = args[0],args[1]
+	#geojson = bl.make_blocks(dataframe,list=True)#,filename=filename
+	bl.make_blocks(dataframe,list=True,filename=filename)
+	return []
+
+# function that will be mapped 
+# essentially a wrapper for the make_points() function
+def map_spark_points(args):
+	# parsing args into filename, and dataframe
+	# that will be written to geojson
+	filename,dataframe = args[0],args[1]
+	#geojson = bl.make_blocks(dataframe,list=True)#,filename=filename
+	bl.make_points(dataframe,list=True,filename=filename)
+	return []
+
+# function that will be mapped
+def map_spark_lines(args):
+	spark_output = True
+	filename,table = args
+	# taking dataframe to list
+	table = bl.df2list(table)
+
+	# getting header
+	header = args[0]
+
+	lines = []
+	# iterating through each line in the list 
+	for row in table[1:]:
+		line = bl.make_line([header,row],list=True,postgis=True)
+		lines.append(line)
+	
+	table = lines
+	count=0
+	total=0
+	for row in table:
+		count+=1
+		# logic to treat rows as outputs of make_line or to perform make_line operation
+		if spark_output == False:
+			value = make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+		elif spark_output == True:
+			value = row
+
+		# logic for how to handle starting and ending geojson objects
+		if row==table[0]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			if not len(table)==2:
+				value=value[:-3]
+				totalvalue=value+['\t},']
+		
+		elif row==table[-1]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:]
+			totalvalue=totalvalue+value
+		else:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:-3]
+			value=value+['\t},']
+			totalvalue=totalvalue+value
+	bl.parselist(totalvalue,filename)
+	return []
+
+# function that iterates through blocks of lines and writes out appropriately
+def map_lines_output(arg):
+	spark_output = True
+
+	filename,table = arg
+
+	count=0
+	total=0
+	for row in table:
+		count+=1
+		# logic to treat rows as outputs of make_line or to perform make_line operation
+		if spark_output == False:
+			value = make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+		elif spark_output == True:
+			value = row
+
+		# logic for how to handle starting and ending geojson objects
+		if row==table[0]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			if not len(table)==2:
+				value=value[:-3]
+				totalvalue=value+['\t},']
+		
+		elif row==table[-1]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:]
+			totalvalue=totalvalue+value
+		else:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:-3]
+			value=value+['\t},']
+			totalvalue=totalvalue+value
+	bl.parselist(totalvalue,filename)
+	return []
+
+
+# parrelize make_blocks 
+# attempts to encapsulate a parrelized make_spark_blocks/split
+def make_spark_blocks(table,sc):
+
+	args = make_spark_args(table,50)
+	concurrent = sc.parallelize(args)
+	concurrent.map(map_spark_blocks).collect()
+	return []
+
+# parrelize make_blocks 
+# attempts to encapsulate a parrelized make_spark_blocks/split
+def make_spark_points(table,sc):
+
+	args = make_spark_args(table,50,points=True)
+	concurrent = sc.parallelize(args)
+	concurrent.map(map_spark_points).collect()
+	return []
+
+# makes lines for a postgis database
+def make_spark_lines(table,filename,sc,**kwargs):
+	spark_output = True
+	# removing datetime references from imported postgis database
+	# CURRENTLY datetime from postgis dbs throw errors 
+	# fields containing dates removed
+	list = []
+	count = 0
+	for row in table.columns.values.tolist():
+		if 'date' in row:
+			list.append(count)
+		count += 1
+
+	table.drop(table.columns[list], axis=1, inplace=True)
+
+
+	# getting spark arguments
+	args = make_spark_args(table,200,lines_output=True)
+
+	# concurrent represents rdd structure that will be parrelized
+	concurrent = sc.parallelize(args)
+
+	# getting table that would normally be going into this function
+	table = concurrent.map(map_spark_lines).collect()
+
+
+
+	'''
+	alignment_field = False
+	spark_output = True
+	if kwargs is not None:
+		for key,value in kwargs.iteritems():
+			if key == 'alignment_field':
+				alignment_field = value 
+			if key == 'spark_output':
+				spark_output = value
+
+	#changing dataframe to list if dataframe
+	if isinstance(table,pd.DataFrame):
+		table=df2list(table)
+	header=table[0]
+	total = []
+	# making table the proper iterable for each input 
+	if spark_output == True:
+		#table = sum(table,[])
+		pass
+	else:
+		table = table[1:]
+	'''
+	'''
+	# making filenames list
+	filenames = []
+	count = 0
+	while not len(filenames) == len(table):
+		count += 1
+		filename = 'lines%s.geojson' % str(count)
+		filenames.append(filename)
+
+	args = []
+	# zipping arguments together for each value in table
+	for filename,row in itertools.izip(filenames,table):
+		args.append([filename,row])
+
+
+	concurrent = sc.parallelize(args)
+	concurrent.map(map_lines_output).collect()
+	'''
+	'''
+	count=0
+	total=0
+	for row in table:
+		count+=1
+		# logic to treat rows as outputs of make_line or to perform make_line operation
+		if spark_output == False:
+			value = make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+		elif spark_output == True:
+			value = row
+
+		# logic for how to handle starting and ending geojson objects
+		if row==table[0]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			if not len(table)==2:
+				value=value[:-3]
+				totalvalue=value+['\t},']
+		
+		elif row==table[-1]:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:]
+			totalvalue=totalvalue+value
+		else:
+			#value=make_line([header,row],list=True,postgis=True,alignment_field=alignment_field)
+			value=value[2:-3]
+			value=value+['\t},']
+			totalvalue=totalvalue+value
+		if count == 1000:
+			total += count
+			count = 0
+			print '[%s/%s]' % (total,len(table))
+	bl.parselist(totalvalue,filename)
+	'''
+
 # makes a certain geojson file based on the type input
-def make_type(table,filename,type):
+def make_type(table,filename,type,**kwargs):
+	for key,value in kwargs.iteritems():
+		if key == 'sc':
+			sc = value
 	if type == 'points':
 		make_points(table,list=True,filename=filename)
 	elif type == 'blocks':
 		make_blocks(table,list=True,filename=filename)
+	elif type == 'line':
+		make_line(table,list=True,filename=filename)
+	elif type == 'polygon':
+		make_polygon(table,list=True,filename=filename)
 	elif type == 'lines':
 		make_postgis_lines(table,filename)
 	elif type == 'polygons':
 		make_postgis_polygons(table,filename)
+	elif type == 'spark_blocks':
+		make_spark_blocks(table,sc)
+	elif type == 'spark_points':
+		make_spark_points(table,sc)
+	elif type == 'spark_lines':
+		make_spark_lines(table,filename,sc)
 
+# function that returns a list of 51 gradient blue to red heatmap 
+def get_heatmap51():
+	list = ['#0030E5', '#0042E4', '#0053E4', '#0064E4', '#0075E4', '#0186E4', '#0198E3', '#01A8E3', '#01B9E3', '#01CAE3', '#02DBE3', '#02E2D9', '#02E2C8', '#02E2B7', '#02E2A6', '#03E295', '#03E184', '#03E174', '#03E163', '#03E152', '#04E142', '#04E031', '#04E021', '#04E010', '#09E004', '#19E005', '#2ADF05', '#3BDF05', '#4BDF05', '#5BDF05', '#6CDF06', '#7CDE06', '#8CDE06', '#9DDE06', '#ADDE06', '#BDDE07', '#CDDD07', '#DDDD07', '#DDCD07', '#DDBD07', '#DCAD08', '#DC9D08', '#DC8D08', '#DC7D08', '#DC6D08', '#DB5D09', '#DB4D09', '#DB3D09', '#DB2E09', '#DB1E09', '#DB0F0A']
+	return list
+
+# checks to see if all the float values in a gradient range are equal to the integer value 
+def check_gradient_ints(rangelist):
+	ind = 0
+	for row in rangelist:
+		if not int(row) == float(row):
+			ind = 1
+	if ind == 0:
+		newrangelist = []
+		for row in rangelist:
+			newrangelist.append(int(row))
+	else:
+		newrangelist = rangelist
+
+	return newrangelist
+
+
+# given a minimum value maximum value returns a list of ranges
+# this list of ranges can be sent into make_object_map()
+def make_gradient_range(min,max,heatmaplist):
+	# getting the step size delta for making the heatmap list
+	delta = (float(max) - float(min)) / len(heatmaplist)
+	
+	# setting the current step size to the minimum
+	current = min
+
+	# instantiating rangelist
+	rangelist = []
+
+	# iterating through the 
+	while not len(rangelist) == len(heatmaplist):
+		rangelist.append(current)
+		current += delta
+
+	# checking range values to see if floats can be reduced to ints
+	rangelist = check_gradient_ints(rangelist)
+
+	return rangelist
 
 # makes sliding heat table 
 def make_object_map(table,headercolumn,ranges,colors,type,**kwargs):
@@ -244,9 +560,9 @@ def make_object_map(table,headercolumn,ranges,colors,type,**kwargs):
 			temp = get_range(table,headercolumn,oldrow,row)
 			color = next(colorgenerator)
 			if filenames==True:
-				filename = color + '2.geojson'
+				filename = color.replace('#','') + '2.geojson'
 			else:
-				filename = color + '.geojson'
+				filename = color.replace('#','') + '.geojson'
 			try:
 				if not len(temp)==0:
 					make_type(temp,filename,type)
@@ -255,11 +571,10 @@ def make_object_map(table,headercolumn,ranges,colors,type,**kwargs):
 					make_type(dummy,filename,type)
 					colordict[filename] = color
 			except Exception:
-				make_type(dummy,filename,type)
+				make_type(dummy,filename.replace('#',''),type)
 				colordict[filename] = color
 			oldrow=row
 	return colordict
-
 
 
 

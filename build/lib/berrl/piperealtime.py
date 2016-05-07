@@ -440,7 +440,7 @@ def get_colors2(color_input):
 
 # get colorline for marker
 def get_colorline_marker(color_input):
-	colorline="""				layer.setIcon(L.mapbox.marker.icon({'marker-color': '%s'}))""" % get_colors(color_input)
+	colorline="""				layer.setIcon(L.mapbox.marker.icon({'marker-color': '%s','marker-size': 'small'}))""" % get_colors(color_input)
 	return colorline
 
 # get colorline for non-marker objects

@@ -171,6 +171,7 @@ def update_squares(slicedtable, csvfileofsquares):
     return newsquares
 
 
+
 #takes a dataframe and turns it into a list
 def df2list(df):
     df = [df.columns.values.tolist()]+df.values.tolist()

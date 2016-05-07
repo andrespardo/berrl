@@ -5,4 +5,5 @@ berrl/pipegeohash.py
 berrl/pipegeojson.py
 berrl/pipehtml.py
 berrl/piperealtime.py
+berrl/postgis_interface.py
 berrl/quickmaps.py
