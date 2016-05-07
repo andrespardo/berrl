@@ -1366,8 +1366,6 @@ def make_colorkey_table(table):
 	
 	return newlist
 
-=======
->>>>>>> origin/master
 
 
 
