@@ -253,3 +253,12 @@ bl.loadparsehtml(bl.collect(),key,file_dictionary=filecolordict)
 **Output of the styled map below using the file_dictionary argument**
 ![](https://cloud.githubusercontent.com/assets/10904982/13392789/2602bdee-deab-11e5-89ae-6590a904ff7e.png)
 
+#### Recent Updates
+* postgis output integration using make_postgis_lines/make_postgis_polygons
+* colorkey kwarg for styling features via a field containing a hexidecimal color
+* pipewidgets - ipywidgets integration with styling updates fired upon a change in widget
+* spark integration/abstractions for writing out/loading large datasets
+* several useful quickmaps abstractions map for dynamically styling colors based on feature values
+* merged pipehtml/piperealtime into the same module
+* pipehtml now simply accepts a time kwarg if realtime interative updates are desired
+
