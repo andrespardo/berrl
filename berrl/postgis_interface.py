@@ -1,4 +1,4 @@
-import psycopg2
+#import psycopg2
 import pandas as pd
 '''
 Purpose: This module exists as an easy postgis integration module its purpose is to

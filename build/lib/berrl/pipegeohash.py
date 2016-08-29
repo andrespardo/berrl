@@ -1,3 +1,11 @@
+import pandas as pd
+import geohash
+import time
+from pipegeohash import *
+import itertools
+import numpy as np
+import random 
+
 '''
 This module is meant to be used in conjunction with pipekml however I could see how it could have other uses.
 
@@ -9,168 +17,10 @@ Functions to be used:
 1) map_table(csvfile,presicion)-given a csv file name and a presicion from (1 to 8) return the coresponding geohash
 2) df2list(df)-takes a dataframe to a list
 3) list2df(list)-takes a list and turn it into DataFrame
-4) update_squares(slicedtable,csvfileofsquares)-given a table you just sliced and a csv file of squares returns the corresponding squares with the table slicedtable
 
 Created by: Bennett Murphy
 email: murphy214@marshall.edu
 '''
-
-import geohash
-import numpy as np
-import pandas as pd
-
-
-#function that reads csv file to memory
-def read(file):
-    data = []
-    import csv
-    f = csv.reader(open(file, 'rb'), delimiter=',', quotechar="\"")
-    for row in f:
-            data.append(row)
-    return data
-
-
-#function that writes csv file to memory
-def writecsv(data, location):
-    import csv
-    with open(location, 'wb') as f:
-        a = csv.writer(f, delimiter=',')
-        for row in data:
-                if row >= 0:
-                        a.writerow(row)
-                else:
-                        a.writerows(row)
-    print 'Wrote csv file to location: %s' % location
-
-
-#performs the intial mapping of the squares table then associates the hash and the count back to the intial table
-def map_table(csvfile, presicion, **kwargs):
-    import itertools
-    if kwargs is not None:
-        list = False
-        for key, value in kwargs.iteritems():
-            if key == 'list':
-                if value is True:
-                    list = True
-    if list is True:
-        data = csvfile
-    else:
-        data = read(csvfile)
-    if isinstance(data, pd.DataFrame):
-        data = df2list(data)
-    count = 0
-    ind1 = 0
-    ind2 = 0
-
-    #identifying lat long headers
-    for row in data[0]:
-        if 'LAT' in str(row).upper() and ind1 == 0:
-            latrow = count
-            ind1 = 1
-        elif 'LONG' in str(row).upper() and ind2 == 0:
-            longrow = count
-            ind2 = 1
-        count += 1
-
-    #grabbing header
-    header = data[0]+['GEOHASH']
-
-    hashedlist = [header]
-    #iterating through each value in alist
-    for row in data[1:]:
-        try:
-            hash = geohash.encode(float(row[latrow]), float(row[longrow]), presicion)
-            hashedlist.append(row+[hash])
-        except Exception:
-            pass
-    make_squares(hashedlist, presicion)
-    return list2df(hashedlist)
-
-
-#generator function
-def gen(list):
-    for row in list:
-        yield row
-
-
-# n**2 generator
-def yield_row(list, id):
-    gener = gen(list[1:])
-    newrow = next(gener)
-    ind = 0
-    while not id == newrow[0] and ind == 0:
-        try:
-            newrow = next(gener)
-            if newrow[0] == id:
-                return newrow
-        except StopIteration:
-            return []
-    return []
-
-
-# makes the square output table
-def make_squares(data, presicion):
-    import numpy as np
-    import pandas as pd
-    hashs = []
-    count = 0
-    boxes = [['HASH', 'LAT1', 'LONG1', 'LAT2', 'LONG2', 'LAT3', 'LONG3', 'LAT4', 'LONG4']]
-    for row in data[1:]:
-        #processing out the 4 points
-        hashreturn = geohash.decode_exactly(row[-1])
-
-        #getting lat and long datu
-        latdatum = hashreturn[0]
-        longdatum = hashreturn[1]
-
-        #getting delta
-        latdelta = hashreturn[2]
-        longdelta = hashreturn[3]
-
-        point1 = [latdatum-latdelta, longdatum+longdelta]
-        point2 = [latdatum-latdelta, longdatum-longdelta]
-        point3 = [latdatum+latdelta, longdatum+longdelta]
-        point4 = [latdatum+latdelta, longdatum-longdelta]
-
-        pointrow = [row[-1]]+point1+point2+point3+point4
-        boxes.append(pointrow)
-        hashs.append(row[-1])
-
-    newlist = [['GEOHASH', 'LAT1', 'LONG1', 'LAT2', 'LONG2', 'LAT3', 'LONG3', 'LAT4', 'LONG4']]
-    boxes = pd.DataFrame(boxes[1:], columns=newlist[0])
-    boxes['COUNT'] = 1
-    boxes = boxes.groupby(newlist[0], sort=True).sum()
-    boxes = boxes.sort_values(by=['COUNT'], ascending=False)
-    boxes.to_csv('squares'+str(presicion)+'.csv')
-
-    return data
-
-
-#given a list of sliced table and the squares previously made from it return a new square table to make_blocks from
-def update_squares(slicedtable, csvfileofsquares):
-    squares = pd.read_csv(csvfileofsquares)
-    if not isinstance(slicedtable, pd.DataFrame):
-        slicedtable = pd.DataFrame(slicedtable[1:], columns=slicedtable[0])
-    #getting header
-    header = slicedtable.columns.values.tolist()
-    columnlabel = header[-1]
-
-    #getting unique hashs
-    uniquehashs = np.unique(slicedtable[columnlabel]).tolist()
-    #reading old sqaure csv file into memory
-    oldsquares = read(csvfileofsquares)
-
-    #getting newsquares from unique list
-    newsquares = [oldsquares[0]]
-    for row in uniquehashs:
-        oldrow = row
-        for row in oldsquares:
-            if row[0] == oldrow:
-                newsquares.append(row)
-
-    return newsquares
-
-
 
 #takes a dataframe and turns it into a list
 def df2list(df):
@@ -183,20 +33,466 @@ def list2df(df):
     df = pd.DataFrame(df[1:], columns=df[0])
     return df
 
+# encoding the geohash string containing arguments into a function that will be mapped
+def my_encode(argstring):
+	argstring = str.split(argstring,'_')
+	lat,long,precision = float(argstring[0]),float(argstring[1]),int(argstring[2])
+	try:
+		hash = geohash.encode(lat,long,precision)
+	except:
+		hash = ''
+	return hash
 
-#in order to avoid a huge join operation if you want to pivot by the count of the groupby square table count use this function
-#square csv is the square table
-#x is the value that you want values greater then
-def greaterthentable(data, squarecsv, x):
-    if not isinstance(data, pd.DataFrame):
-        data = pd.DataFrame(data[1:], columns=data[0])
+# getting lat and long headers
+def get_latlong_headers(headers):
+	for row in headers:
+		if 'lat' in str(row).lower():
+			latheader = row
+		elif 'lon' in str(row).lower():
+			longheader = row
+	return [latheader,longheader]
 
-    square = read(squarecsv)
-    header = data.columns.values.tolist()
-    total = [header]
-    for row in square[1:]:
-        if int(row[-1]) > int(x):
-            temp = data[(data.GEOHASH == str(row[0]))]
-            temp = temp.values.tolist()
-            total += temp
-    return list2df(total)
+
+# given a dataframe and a list of columnsn 
+# drops columns from df
+def drop_columns(table,columns):
+	list = []
+	count = 0
+	for row in columns:
+		columnrow = row
+		for row in table.columns.values.tolist():
+			if columnrow == row:
+				list.append(count)
+			count += 1
+
+	table.drop(table.columns[list], axis=1, inplace=True)	
+	return table
+# function making the geohash string and returning the table with an 
+# appropriate geohash column 
+def geohash_table(data,latlongheaders,precision):
+	latheader,longheader = latlongheaders
+	data['ARGS'] = data[latheader].astype(str) + '_' + data[longheader].astype(str) + '_' + str(precision)
+	data['GEOHASH'] = data['ARGS'].map(my_encode)
+	data = drop_columns(data,['ARGS'])
+	return data
+
+# function making the geohash string and returning the table with an 
+# appropriate geohash column 
+def geohash_table(data,latlongheaders,precision):
+	latheader,longheader = latlongheaders
+	data['ARGS'] = data[latheader].astype(str) + '_' + data[longheader].astype(str) + '_' + str(precision)
+	data['GEOHASH'] = data['ARGS'].map(my_encode)
+	data = drop_columns(data,['ARGS'])
+	return data
+
+# function to perform outer (column) operations on fields and occasonially a function map (maybe)
+def perform_outer_operation(data,field,operation):
+	derivfield = str.split(field,'_')[0]
+	print derivfield,operation
+	# right now ill do the 3 stat operations taht seem relevant
+	if operation.lower() == 'mean':
+		data[field] = data[derivfield].mean()
+	elif operation.lower() == 'sum':
+		data[field] = data[derivfield].sum()
+	elif operation.lower() == 'std':
+		data[field] = data[derivfield].std()
+	elif operation.lower() == 'max':
+		data[field] = data[derivfield].max()
+	return data
+
+
+# makes and returning the squares table.
+def make_squares(data,precision,columns):
+	# getting nonsum operation headers 
+	nonsumheaders = get_nonsum_headers(columns)
+
+	# getting sum headers
+	sumheaders = get_sum_headers(columns)
+
+	# doing the grop by and sorting by the highest count value
+	data['COUNT'] = 1
+	data = data[['GEOHASH','COUNT']+sumheaders]
+	squares = data.groupby(['GEOHASH']).sum()
+	squares = squares.sort(['COUNT'],ascending=[0])
+	squares = squares.reset_index()
+	squares['GEOHASH'] = squares['GEOHASH'].astype(str)
+	squares = squares[squares.GEOHASH.str.len() > 0]
+	data = data.reset_index()
+
+	# adding the EXTREMA string column then expanding out the constituent squares
+	# squares['EXTREMA_STRING']  = squares['GEOHASH'].map(get_points_geohash_extrema)
+	operationdict = {}
+	uniques = []
+	for row in nonsumheaders:
+		field = str(row)
+		operation = str.split(row,'-')[-1]
+		if not str.split(row,'-')[0].lower() == 'inner':
+			squares = perform_outer_operation(squares,field,str.split(row,'_')[-1])
+		else:
+			operation = 'inner_' + operation
+
+		# getting derivative field 
+		derivfield = str.split(row,'_')[0]
+		derivfield = str.split(row,'-')[1]
+
+		uniques.append(derivfield)
+		if not len(np.unique(uniques).tolist()) == len(uniques) and 'inner' in operation:
+			operationdict[derivfield] = {}
+		
+		uniques = np.unique(uniques).tolist()
+		if 'inner' in operation and derivfield in row:
+			operationdict[derivfield][row] = str.split(operation,'_')[1]
+
+	# making header
+	header =  ['GEOHASH','LAT1', 'LONG1', 'LAT2', 'LONG2', 'LAT3', 'LONG3', 'LAT4', 'LONG4','COUNT'] + sumheaders + nonsumheaders 
+
+	newsquares = [header]
+	# iterating through each square here 
+	for row in df2list(squares)[1:]:
+		# getting points
+		points = get_points_geohash(row[0])
+		
+		# making new row
+		newrow = [row[0]] + points + row[1:]
+ 		
+ 		# appending to newsquares 
+ 		newsquares.append(newrow)
+
+ 	# taking newsquares to dataframe
+ 	squares = list2df(newsquares)
+
+	return squares
+
+# given a geohash returns the 4 points that will make up the squares table
+def get_points_geohash(hash):
+    #processing out the 4 points
+    hashreturn = geohash.decode_exactly(hash)
+
+    #getting lat and long datu
+    latdatum = hashreturn[0]
+    longdatum = hashreturn[1]
+
+    #getting delta
+    latdelta = hashreturn[2]
+    longdelta = hashreturn[3]
+
+    point1 = [latdatum-latdelta, longdatum+longdelta]
+    point2 = [latdatum-latdelta, longdatum-longdelta]
+    point3 = [latdatum+latdelta, longdatum+longdelta]
+    point4 = [latdatum+latdelta, longdatum-longdelta]
+
+    return point1 + point2 + point3 + point4
+
+
+# given a geohash returns the 4 points that will make up the squares table
+def get_alignment_geohash(hash):
+    #processing out the 4 points
+    hashreturn = geohash.decode_exactly(hash)
+
+    #getting lat and long datu
+    latdatum = hashreturn[0]
+    longdatum = hashreturn[1]
+
+    #getting delta
+    latdelta = hashreturn[2]
+    longdelta = hashreturn[3]
+
+    point1 = [latdatum-latdelta, longdatum+longdelta]
+    point2 = [latdatum-latdelta, longdatum-longdelta]
+    point3 = [latdatum+latdelta, longdatum-longdelta]
+    point4 = [latdatum+latdelta, longdatum+longdelta]
+
+    return [point1,point2,point3,point4,point1]
+
+
+# gets all relevant headers for each value in columns
+def get_column_headers(columnsandcount,headers):
+	columnheaders = []
+	for row in columnsandcount:
+		oldrow = str(row)
+		for row in headers:
+			if oldrow in str(row):
+				columnheaders.append(row)
+	return columnheaders
+
+# given columnsheaders from output above
+# checks if the output of str split is above 2 
+# if it is another operation is supposed to be performed
+# in a way an api for other non sum values I guess that 
+# extra field will be used to determine whether a operation is outer or inner
+# group by if a field is adde, thinking aout loud
+def get_nonsum_headers(columnheaders):
+	nonsumheaders = []
+	for row in columnheaders:
+		if '_' in str(row):
+ 			nonsumheaders.append(row)
+ 	return nonsumheaders
+
+
+# does the inverse of operaton above
+def get_sum_headers(columnheaders):
+	sumheaders = []
+	for row in columnheaders:
+		if not '_' in str(row):
+ 			sumheaders.append(row)
+ 	return sumheaders
+
+# creates geohash and squares table
+def map_table(data,precision,**kwargs):
+	columns = []
+	filename = False
+	return_squares = False
+	map_only = False
+
+	for key,value in kwargs.iteritems():
+		if key == 'columns':
+			columns = value
+		if key == 'filename':
+			filename = value
+		if key == 'return_squares':
+			return_squares = value
+		if key == 'map_only':
+			map_only = value
+
+	# getting column headers
+	columnheaders = data.columns.values.tolist()
+
+	# sending into new geohashing function
+	data = geohash_points(data,precision)
+
+	# returning data if only the mapped table should be returned 
+	if map_only == True:
+		return data
+
+	# making squares table
+	squares = make_squares(data,8,columnheaders)
+
+	if not filename == False:
+		squares.to_csv(filename,index=False)
+	else:
+		squares.to_csv('squares' +str(precision) + '.csv',index=False)
+
+	if return_squares == True:
+		return squares
+	else:
+		return data
+
+
+# given a table with a high geohash a list of precisions creates consitutent
+# tables and writes out to csv files accordingly
+# input the columns field for other values to be summed or grouped by 
+def make_geohash_tables(table,listofprecisions,**kwargs):
+	'''
+	sort_by - field to sort by for each group
+	return_squares - boolean arg if true returns a list of squares instead of writing out to table
+	'''
+	return_squares = False
+	sort_by = 'COUNT'
+	# logic for accepting kwarg inputs
+	for key,value in kwargs.iteritems():
+		if key == 'sort_by':
+			sort_by = value
+		if key == 'return_squares':
+			return_squares = value
+
+	# getting header
+	header = df2list(table)[0]
+
+	# getting columns
+	columns = header[10:]
+
+	# getting original table
+	originaltable = table
+	if not sort_by == 'COUNT':
+		originaltable = originaltable.sort([sort_by],ascending=[0])
+
+
+
+
+	listofprecisions = sorted(listofprecisions,reverse=True)
+	# making total table to hold a list of dfs
+	if return_squares == True and listofprecisions[-1] == 8:
+		total_list = [table]
+	elif return_squares == True:
+		total_list = []
+
+	for row in listofprecisions:
+		precision = int(row)
+		table = originaltable
+		table['GEOHASH'] = table.GEOHASH.str[:precision]
+		table = table[['GEOHASH','COUNT']+columns].groupby(['GEOHASH'],sort=True).sum()
+		table = table.sort([sort_by],ascending=[0])
+		table = table.reset_index()
+
+		newsquares = [header]
+		# iterating through each square here 
+		for row in df2list(table)[1:]:
+			# getting points
+			points = get_points_geohash(row[0])
+			
+			# making new row
+			newrow = [row[0]] + points + row[1:]
+			
+			# appending to newsquares 
+			newsquares.append(newrow)
+
+		# taking newsquares to dataframe
+		table = list2df(newsquares)
+
+		if return_squares == True:
+			total_list.append(table)
+		else:
+			table.to_csv('squares' + str(precision) + '.csv',index=False)
+
+	if return_squares == True:
+		return total_list
+	else:
+		print 'Wrote output squares tables to csv files.'
+
+
+# given a list of geohashs returns a dataframe that can be 
+# sent into make blocks 
+def make_geohash_blocks(geohashs,**kwargs):
+	df = False
+	for key,value in kwargs.iteritems():
+		if key == 'df':
+			df = value
+	if df == True:
+		geohashs = geohashs.unstack(level=0).reset_index()[0].values.tolist()
+	header = ['GEOHASH','LAT1', 'LONG1', 'LAT2', 'LONG2', 'LAT3', 'LONG3', 'LAT4', 'LONG4','COUNT']
+	newlist = [header]
+
+	for row in geohashs:
+		if not row == '':
+			points = get_points_geohash(row)
+			newrow = [row] + points + [1]
+			newlist.append(newrow)
+
+	return list2df(newlist)
+
+# given a table of points and geohashs returns the same table with indicies positon in each geohash
+# from indicies get decimal points
+def ind_dec_points(alignmentdf):
+	# getting alignment df
+	header = alignmentdf.columns.values.tolist()
+
+	count =0
+	for row in header:
+		if 'lat' in row.lower():
+			latpos = count
+		elif 'long' in row.lower():
+			longpos = count
+		elif 'geohash' in row.lower():
+			hashpos = count
+		count += 1
+	xs = []
+	ys = []
+	for row in alignmentdf.values.tolist():
+		lat = row[latpos]
+		long = row[longpos]
+		ghash = row[hashpos]
+		
+		midlat,midlong,latdelta,longdelta = geohash.decode_exactly(ghash)
+		ulcornerpoint = [midlat + latdelta,midlong - longdelta]
+
+		latsize = latdelta * 2
+		longsize = longdelta * 2
+
+		x = abs(ulcornerpoint[1] - long) / longsize
+		y = abs(ulcornerpoint[0] - lat) / latsize
+
+		xs.append(x)
+		ys.append(y)
+
+	alignmentdf['x'] = xs
+	alignmentdf['y'] = ys
+
+	return alignmentdf
+
+# the second part of the actual geohashing process
+# where the actual geohashing occurs
+def geohash_linted(lats,lngs,precision):
+	newlist = []
+	ds = []
+	for i in range(0,len(lats)):
+		oi = (lats[i],lngs[i],precision)
+ 		#newlist.append(oi)
+ 		ds.append(geohash.encode(*oi))
+ 		#for i in range(0,len(pts)):
+		#ds.append(geohash.encode(*newlist[i]))
+	return ds
+
+
+# lints points for non hashable data types
+def lint_values(data):
+	for row in data.columns.values.tolist():
+		if 'lat' in row.lower():
+			lathead = row
+		elif 'long' in row.lower():
+			longhead = row
+	
+	data = data[(data[lathead] < 90.0) & (data[lathead] > -90.0)]
+	data = data.fillna(value=0)
+
+	return data[lathead].astype(float).values.tolist(),data[longhead].values.tolist(),data
+
+
+# performs both operations above
+# may accept a kwarg to throw the output geohash into an area function letter
+def geohash_points(data,precision):
+	# selecting the point values that can be geohashed 
+	#meaning anything under or above 90 to - 90
+
+	lats,longs,data = lint_values(data)
+	data['GEOHASH'] = geohash_linted(lats,longs,precision)
+	return data
+
+
+# given a number of points in which to generate 
+# returns a random number of lat and longs for testing etc.
+# this function is encapsulated so that its not easier to just geohash
+# returns df with fields lat,long
+def random_points(number):
+	os = []
+	for i in range(number):
+		o = ((random.random()*2 - 1.0)*90.0, (random.random()*2 - 1.0)*180.0 )
+		os.append(o)
+	
+	return pd.DataFrame(os,columns = ['LAT','LONG'])
+
+def latval(latitude):
+	if latitude > 0:
+		return (latitude / 90.0) / 2.0 + .5
+	else:
+		return .5 - abs((latitude / 90.0) / 2.0 )
+
+def longval(longitude):
+	if longitude > 0:
+		return (longitude / 180.0) / 2.0 + .5
+	else:
+		return .5 - abs((longitude / 180.0) / 2.0 )
+
+
+# given an extrema retreives rangdom points within extrema to be generated
+def random_points_extrema(number,extrema):
+	os = []
+	latmax = extrema['n']
+	latmin = extrema['s']
+	longmin = extrema['w']
+	longmax = extrema['e']
+
+	decx1 = latval(latmin)
+	decx2 = latval(latmax)
+
+	decy1 = longval(longmin)
+	decy2 = longval(longmax)
+
+
+	print decy1,decy2
+	minlat = 30.0
+	for i in range(number):
+		o = ((random.uniform(decx1,decx2)*2 - 1)*90, (random.uniform(decy1,decy2)*2 - 1.0)*180 )
+		os.append(o)
+	
+	return pd.DataFrame(os,columns = ['LAT','LONG'])
+

@@ -19,7 +19,7 @@ from pipegeojson import *
 from pipehtml import *
 import time
 from IPython.display import display
-
+from quickmaps import *
 
 # making html and writing html block
 def make_write_html():
