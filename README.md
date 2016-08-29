@@ -161,51 +161,6 @@ Pipehtml/piperealtime have been explained quite extensively the functions howeve
 
 ##### How to use Berrl 
 Berrl's strength lies more in its simplicity then its complexity. Berrl allows you to make geojson elements, you either collect them in a list or use the collect() function to open up every geojson file in the directory and it automatically parses the JS/HTML so that element features are inserted into the popup window. Berrl also allows for a few more things abstractions from this, for example to style by color for each geojson element you have two options. 
-* Insert a column within the dataframe making sure to keep the same column field name for every dataframe then input a colorkey=column header kwarg in parseloadhtml() or parseloadhtmlrealtime() 
-* passing in a dictionary with the **filenames as the key** and the colors as the value to look up, this dictionary doesn't have to be the length of the geojson list it can just be a specific portion of geojsons, the rest will be assumed to be the default (blue) 
-* Colors supported include:
-  * light green
-  * blue
-  * red
-  * yellow
-  * light blue
-  * orange
-  * purple
-  * green
-  * brown
-  * pink
-  * default
- 
-
-
-
-![](https://cloud.githubusercontent.com/assets/10904982/13390608/7f2d39fc-de9d-11e5-9571-02c1cfab477d.png)
-
-#### Using the file_dictionary **Kwarg Argument for Styling
-```python
-import berrl as bl
-import itertools
-key='your api key'
-# making all geojson
-bl.make_points('sharks.csv',filename='sharks.geojson')
-bl.make_line('line_example.csv',filename='line.geojson')
-bl.make_blocks('blocks_example.csv',filename='blocks.geojson')
-bl.make_polygon('polygon_example.csv',filename='polygon.geojson')
-
-# setting up colors list
-colors=['red','green','yellow','purple']
-count=0
-for a,b in itertools.izip(colors,bl.collect()):
-	if count==0:
-		filecolordict={b:a} # starting the creating of the dictionary that will import styling into html
-		count=1
-	else:
-		filecolordict[str(b)]=str(a)
-print filecolordict
-bl.loadparsehtml(bl.collect(),key,file_dictionary=filecolordict)
-```
-**Output of the styled map below using the file_dictionary argument**
-![](https://cloud.githubusercontent.com/assets/10904982/13392789/2602bdee-deab-11e5-89ae-6590a904ff7e.png)
 
 #### Recent Updates
 * postgis output integration using make_postgis_lines/make_postgis_polygons
