@@ -763,6 +763,7 @@ def make_polygon(csvfile,**kwargs):
 	alignment_field = False
 	f = False
 	ring = False
+	bounds = False
 	string_alignment = False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
@@ -790,6 +791,8 @@ def make_polygon(csvfile,**kwargs):
 				ring = value
 			elif key == 'string_alignment':
 				string_alignment = value
+			elif key == 'bounds':
+				bounds = value
 
 	# developer quick options for testing
 	if f == True:
@@ -807,7 +810,22 @@ def make_polygon(csvfile,**kwargs):
 	if isinstance(data,pd.DataFrame):
 		data = df2list(data)
 	
-	if postgis==True:
+	if postgis == True and string_alignment == True:
+		count = 0
+		for row in data[0]:
+			if row == 'ALIGN':
+				rowpos = count
+			count += 1
+
+		coords = unstring_alignment(data[1][rowpos])
+		if bounds == True: 
+			df = pd.DataFrame(coords,columns=['LONG','LAT'])
+			extrema = {'w':df['LONG'].min(),'e':df['LONG'].max(),'s':df['LAT'].min(),'n':df['LAT'].max()}
+			boundslist = [[extrema_bounds['w'],extrema_bounds['n']],[extrema_bounds['e'],extrema_bounds['s']]]
+
+		data[0] = data[0][:rowpos] + data[0][rowpos+1:]
+		data[1] = data[1][:rowpos] + data[1][rowpos+1:]
+	elif postgis==True:
 		coords=get_lat_long_align(data[0],data[1],alignment_field)
 	elif string_alignment == True:
 		count = 0
@@ -840,6 +858,8 @@ def make_polygon(csvfile,**kwargs):
 	
 	# zipping polygon info into a dictionary
 	info = dict(zip(z[0],z[1]))
+	if bounds == True:
+		info['bounds'] = boundslist
 
 	# as of now witch craft that works
 	c1 = ['type','geometry','properties']
@@ -1167,6 +1187,13 @@ def make_postgis_lines(table,filename,**kwargs):
 
 # makes polygons for a postgis database
 def make_postgis_polygons(table,filename,**kwargs):
+	string_alignment = False
+	bounds = False
+	for key,value in kwargs.iteritems():
+		if key == 'string_alignment':
+			string_alignment = value
+		if key == 'bounds':
+			boundry = value
 	# changing dataframe to list if dataframe
 	# still needs some work
 	if isinstance(table,pd.DataFrame):
@@ -1177,11 +1204,11 @@ def make_postgis_polygons(table,filename,**kwargs):
 	for row in table[1:]:
 		count+=1
 		if row==table[1]:
-			value=make_polygon([header,row],list=True,postgis=True)
+			value=make_polygon([header,row],list=True,postgis=True,string_alignment=string_alignment,bounds=bounds)
 			totalvalue = value
 
 		else:
-			value=make_polygon([header,row],list=True,postgis=True)
+			value=make_polygon([header,row],list=True,postgis=True,string_alignment=string_alignment,bounds=bounds)
 			
 			totalvalue['features'].append(value['features'][0])
 	
