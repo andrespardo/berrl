@@ -1,6 +1,23 @@
 import os
 import json
 import itertools
+import SimpleHTTPServer
+import SocketServer
+
+def server_server():
+	PORT = 8000
+
+	Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+
+	try:
+		httpd = SocketServer.TCPServer(("", PORT), Handler)
+
+		print "serving at port", PORT
+		httpd.serve_forever()
+	except Exception:
+		pass
+		print 'already serving'
+
 
 # makes start block from template using 
 def make_startingblock(apikey,sidebar,file_dictionary):

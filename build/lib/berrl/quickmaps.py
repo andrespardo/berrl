@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import itertools
 import warnings
+import hashlib
 warnings.simplefilter(action = "ignore", category = Warning)
 
 def map_axis_unique(dataframe,uniqueaxis,**kwargs):
@@ -1211,25 +1212,130 @@ def genercolors(colors):
 		yield row
 
 def addcolor(arg):
-	color = next(colorgen)
+	global color
 	arg['COLORKEY'] = color
+	try:
+		color = next(colorgen)
+	except StopIteration:
+		pass
 	return arg
 
+# given a  dataset and a field
+# scrambles or delineates potentailly 
+# fields close to one another to be seen more easily
+def hashfield_data(data,field,colors):
+	global areadict
+	areas = np.unique(data[field]).tolist()
+	olddict = {}
+	colordic = {}
+	count = 0
+	total = colors
+	current = len(total)
+	while len(areas) > current:
+		delta = len(areas) - current
+		if delta > len(colors):
+			total += colors
+			current += len(colors)
+		else:
+			total += colors[:delta]
+			current += len(colors[:delta])
+	print total
+
+	for area,color in itertools.izip(areas,colors):
+		a = hashlib.md5()
+		a.update(str(area))	
+		olddict[str(area)] = str(a.hexdigest()).encode('utf-8')
+		colordic[str(a.hexdigest())] = color
+		count += 1
+
+	areadict = olddict
+	data[field + '1'] = data[field].astype(str).map(here)
+	areadict = colordic	
+	data['COLORKEY'] = data[field+'1'].astype(str).map(here)
+	return data
+
+def add_colorkey(data,field,colors):
+	global colordict
+	areas = np.unique(data[field]).tolist()
+	olddict = {}
+	colordic = {}
+	count = 0
+	total = colors
+	current = len(total)
+	while len(areas) > current:
+		delta = len(areas) - current
+		if delta > len(colors):
+			total += colors
+			current += len(colors)
+		else:
+			total += colors[:delta]
+			current += len(colors[:delta])
+	print total
+
+	
+	for area,color in itertools.izip(areas,colors):
+		a = hashlib.md5()
+		a.update(str(area))	
+		colordic[str(area)] = color
+		count += 1
+	colordict = colordic
+	data['COLORKEY'] = data[field].astype(str).map(herecolor)
+	return data
+
+# used in the hexfield function to get the new
+# hex stirng
+def here(has):
+	global areadict
+	return areadict.get(has,'')
+
+# used in the hexfield function to get the new
+# hex stirng
+def herecolor(has):
+	global colordict
+	return colordict.get(has,'')
 # makes a individual colorkey field for each unique value in categorical data
 # assumes your maximum number of fields is currently under 51
-def unique_groupby(data,field):
+def unique_groupby(data,field,**kwargs):
+	hashfield = False
+	for key,value in kwargs.iteritems():
+		if key == 'hashfield':
+			hashfield = value
+
 	global colorgen
-
-	global colors
+	global color
+	#global colors
+	data = data.fillna(value='0')
 	colors = get_heatmaplarge()
-	colors = reduce_color_list_size(np.unique(data[field]).tolist()+['end'],colors)
+	colors = reduce_color_list_size(np.unique(data[field]).tolist(),colors)
 	colorgen = genercolors(colors)
+	color = next(colorgen)
 
 
+	if not hashfield == False:
+		colors = get_heatmaplarge()
+		data = hashfield_data(data,field,colors)		
+		return data
+		'''
+		data = data.fillna(value='0')
+		colors = reduce_color_list_size(np.unique(data[field+'1']).tolist(),colors)
+		colorgen = genercolors(colors)
+		color = next(colorgen)
 
-	df = data.groupby(field).apply(addcolor)
-	return df
+		df = data.groupby(field+'1').apply(addcolor)
+		'''
 
+	else:
+		data = data.fillna(value='0')
+		colors = get_heatmaplarge()
+		data = add_colorkey(data,field,colors)
+		return data
+		'''
+		colors = reduce_color_list_size(np.unique(data[field]).tolist(),colors)
+		colorgen = genercolors(colors)
+		color = next(colorgen)
+
+		df = data.groupby(field).apply(addcolor)
+		'''
 
 # making unique object for a fields range values 
 def make_object_map(data,field,**kwargs):

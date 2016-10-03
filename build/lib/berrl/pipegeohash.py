@@ -103,49 +103,19 @@ def perform_outer_operation(data,field,operation):
 
 # makes and returning the squares table.
 def make_squares(data,precision,columns):
-	# getting nonsum operation headers 
-	nonsumheaders = get_nonsum_headers(columns)
-
-	# getting sum headers
-	sumheaders = get_sum_headers(columns)
-
 	# doing the grop by and sorting by the highest count value
 	data['COUNT'] = 1
-	data = data[['GEOHASH','COUNT']+sumheaders]
-	squares = data.groupby(['GEOHASH']).sum()
+	squares = data[['GEOHASH','COUNT']]
+	squares = squares.groupby('GEOHASH').sum()
 	squares = squares.sort(['COUNT'],ascending=[0])
 	squares = squares.reset_index()
 	squares['GEOHASH'] = squares['GEOHASH'].astype(str)
 	squares = squares[squares.GEOHASH.str.len() > 0]
-	data = data.reset_index()
-
-	# adding the EXTREMA string column then expanding out the constituent squares
-	# squares['EXTREMA_STRING']  = squares['GEOHASH'].map(get_points_geohash_extrema)
-	operationdict = {}
-	uniques = []
-	for row in nonsumheaders:
-		field = str(row)
-		operation = str.split(row,'-')[-1]
-		if not str.split(row,'-')[0].lower() == 'inner':
-			squares = perform_outer_operation(squares,field,str.split(row,'_')[-1])
-		else:
-			operation = 'inner_' + operation
-
-		# getting derivative field 
-		derivfield = str.split(row,'_')[0]
-		derivfield = str.split(row,'-')[1]
-
-		uniques.append(derivfield)
-		if not len(np.unique(uniques).tolist()) == len(uniques) and 'inner' in operation:
-			operationdict[derivfield] = {}
-		
-		uniques = np.unique(uniques).tolist()
-		if 'inner' in operation and derivfield in row:
-			operationdict[derivfield][row] = str.split(operation,'_')[1]
+	squares = squares.groupby('GEOHASH').first()
+	squares = squares.reset_index()
 
 	# making header
-	header =  ['GEOHASH','LAT1', 'LONG1', 'LAT2', 'LONG2', 'LAT3', 'LONG3', 'LAT4', 'LONG4','COUNT'] + sumheaders + nonsumheaders 
-
+	header =  ['GEOHASH','LAT1', 'LONG1', 'LAT2', 'LONG2', 'LAT3', 'LONG3', 'LAT4', 'LONG4','COUNT'] 
 	newsquares = [header]
 	# iterating through each square here 
 	for row in df2list(squares)[1:]:
@@ -243,6 +213,8 @@ def map_table(data,precision,**kwargs):
 	filename = False
 	return_squares = False
 	map_only = False
+	geohash_field = False
+	latlongheaders = False 
 
 	for key,value in kwargs.iteritems():
 		if key == 'columns':
@@ -253,17 +225,26 @@ def map_table(data,precision,**kwargs):
 			return_squares = value
 		if key == 'map_only':
 			map_only = value
+		if key == 'geohash_field':
+			geohash_field = value
+		if key == 'latlongheaders':
+			latlongheaders = value
 
-	# getting column headers
-	columnheaders = data.columns.values.tolist()
 
-	# sending into new geohashing function
-	data = geohash_points(data,precision)
+	if geohash_field  == False:
+		# sending into new geohashing function
+		data = geohash_points(data,precision,latlongheaders)
+	else:
+		data['GEOHASH'] = data['GEOHASH'].str[:precision]
+
 
 	# returning data if only the mapped table should be returned 
 	if map_only == True:
 		return data
 
+	# getting column headers
+	columnheaders = data.columns.values.tolist()
+	
 	# making squares table
 	squares = make_squares(data,8,columnheaders)
 
@@ -408,6 +389,30 @@ def ind_dec_points(alignmentdf):
 	alignmentdf['y'] = ys
 
 	return alignmentdf
+# mapped function for creating geohahs center points
+def make_geohash_point(ghash):
+	lat,long = geohash.decode(ghash)
+	return [long,lat]
+
+# creates center point df from a unique geohash list
+def points_from_geohash(geohashlist):
+	data = pd.DataFrame(geohashlist,columns=['GEOHASH'])
+	holder = data['GEOHASH'].apply(make_geohash_point)
+	data[['LONG','LAT']] = pd.DataFrame(holder.values.tolist(),columns=['LONG','LAT'])
+	return data
+
+# creates center point df from a unique geohash list
+def points_from_geohash4(geohashlist):
+	total = [['GEOHASH','LONG','LAT']]
+	for row in geohashlist:
+		y,x,yd,xd = geohash.decode_exactly(row)
+		pt1 = [row,x+xd,y+yd] # ne
+		pt2 = [row,x-xd,y-yd] # sw
+		pt3 = [row,x+xd,y-yd] # se
+		pt4 = [row,x-xd,y+yd] # nw
+		total += [pt1,pt2,pt3,pt4]
+	total = pd.DataFrame(total[1:],columns=total[0])
+	return total
 
 # the second part of the actual geohashing process
 # where the actual geohashing occurs
@@ -424,12 +429,15 @@ def geohash_linted(lats,lngs,precision):
 
 
 # lints points for non hashable data types
-def lint_values(data):
-	for row in data.columns.values.tolist():
-		if 'lat' in row.lower():
-			lathead = row
-		elif 'long' in row.lower():
-			longhead = row
+def lint_values(data,latlongheaders):
+	if not latlongheaders == False:
+		lathead,longhead = latlongheaders
+	else:	
+		for row in data.columns.values.tolist():
+			if 'lat' in str(row).lower():
+				lathead = row
+			elif 'long' in str(row).lower():
+				longhead = row
 	
 	data = data[(data[lathead] < 90.0) & (data[lathead] > -90.0)]
 	data = data.fillna(value=0)
@@ -439,11 +447,10 @@ def lint_values(data):
 
 # performs both operations above
 # may accept a kwarg to throw the output geohash into an area function letter
-def geohash_points(data,precision):
+def geohash_points(data,precision,latlongheaders):
 	# selecting the point values that can be geohashed 
 	#meaning anything under or above 90 to - 90
-
-	lats,longs,data = lint_values(data)
+	lats,longs,data = lint_values(data,latlongheaders)
 	data['GEOHASH'] = geohash_linted(lats,longs,precision)
 	return data
 
@@ -488,7 +495,6 @@ def random_points_extrema(number,extrema):
 	decy2 = longval(longmax)
 
 
-	print decy1,decy2
 	minlat = 30.0
 	for i in range(number):
 		o = ((random.uniform(decx1,decx2)*2 - 1)*90, (random.uniform(decy1,decy2)*2 - 1.0)*180 )

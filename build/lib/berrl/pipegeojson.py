@@ -41,7 +41,6 @@ def get_lat_long_align(header,extendrow,alignment_field):
 			newheader.append(a)
 			newvalues.append(b)
 		count+=1	
-	
 	# parsing through the text geometry to yield what will be rows
 	try:
 		geometry=extendrow[geometrypos]
@@ -55,8 +54,11 @@ def get_lat_long_align(header,extendrow,alignment_field):
 		newgeometry = str.split(str(geometry[0]),',')
 		
 	else:
-		newgeometry=geometry[:-2][0]
-		newgeometry=str.split(newgeometry,',')
+		if not len(geometry[:-2]) >= 1:
+			return [[0,0],[0,0]]
+		else:
+			newgeometry=geometry[:-2][0]
+			newgeometry=str.split(newgeometry,',')
 
 	coords=[]
 	for row in newgeometry:
@@ -441,7 +443,7 @@ def collect():
 	return jsons
 
 #cleans the current of geojson files (deletes them)
-def clean_current():
+def cln():
 	jsons=collect()	
 	for row in jsons:
 		os.remove(row)
@@ -628,6 +630,94 @@ def make_ring_table(data,listofalignments):
 
 	return data
 
+# gets filenames for entries in current directory
+# starts at 0 iterates up
+def get_filename():
+	count = 0
+	files = collect()
+	if len(files) == 0:
+		filename = str(count) + '.geojson'
+		return filename
+	else:
+		bool = False
+		strranges= []
+		for row in files:
+			if count == int(str.split(row,'.')[0]):
+				bool = True
+		if bool == True:
+			for row in files:
+				strranges.append(int(str.split(row,'.')[0]))
+			count = max(strranges)
+			return str(count+1) + '.geojson'
+		else:
+			print 'Other files with differing syntax.'
+
+# a spark wrapper for make_postgis_lines
+# this function is mapped on instance of args
+def spark_wrapper_polygons(arg):
+	data = make_postgis_polygons(arg,'',return_json=True)
+	return data
+
+# a spark wrapper for make_postgis_lines
+# this function is mapped on instance of args
+def spark_wrapper_lines(arg):
+	data = make_postgis_lines(arg,'',return_json=True)
+	return data
+
+# a spark wrapper for make_postgis_lines
+# this function is mapped on instance of args
+def spark_wrapper_write_polygons(arg):
+	filename, data = arg
+	data = make_postgis_polygons(data,filename)
+	return data
+
+# a spark wrapper for make_postgis_lines
+# this function is mapped on instance of args
+def spark_wrapper_write_lines(arg):
+	filename, data = arg
+	data = make_postgis_lines(data,filename)
+	return data
+
+# wrapper function for making points
+def make_wrapper_points(arg):
+	filename, data = arg
+	data = make_points(data,filename=filename)
+	return data	
+
+# wrapper function for makign blocks
+def make_wrapper_blocks(arg):
+	filename, data = arg
+	data = make_blocks(data,filename=filename)
+	return data	
+
+# sums all geojson objects in a list of geojsons 
+# into one large geojson
+def spark_sum(output):
+    count = 0
+    for row in output:
+        if count == 0:
+            total = row
+            count = 1
+        else:
+            total['features'] += row['features']
+    return total
+
+
+# handler for writing out each individual geojson into its own file
+# construction is easientially file.geojson, file.geojson
+def handle_multiple_writes(geojsons,splits,filename):
+	string = str.split(filename,'.')[0]
+
+	# looping through to get all filenames that will be written out
+	for row,totaljson in itertools.izip(range(splits),geojsons):
+		filename = string + str(row) + '.geojson'
+		#parselist(totalvalue,filename)
+		with open(filename,'wb') as newgeojson:
+			json.dump(totaljson,newgeojson)
+		print 'Wrote %s to geojson.' % filename
+	return []
+
+
 
 #makes a geojson line from a csv file or tabular list
 def make_line(csvfile,**kwargs):
@@ -643,6 +733,7 @@ def make_line(csvfile,**kwargs):
 	bounds = False
 	extrema = False
 	f = False
+	sc = False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key == 'strip':
@@ -669,11 +760,13 @@ def make_line(csvfile,**kwargs):
 				extrema = value
 			elif key == 'f':
 				f = True
+			elif key == 'sc':
+				sc = False				
 
 	# developer quick options for testing
 	if f == True:
 		list = True
-		filename = 'holder.geojson' 
+		filename = get_filename()
 
 	# handling if input is a list or dataframe
 	if list == True:
@@ -765,6 +858,7 @@ def make_polygon(csvfile,**kwargs):
 	ring = False
 	bounds = False
 	string_alignment = False
+	sc = False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key == 'strip':
@@ -793,11 +887,13 @@ def make_polygon(csvfile,**kwargs):
 				string_alignment = value
 			elif key == 'bounds':
 				bounds = value
+			elif key == 'sc':
+				sc = value
 
 	# developer quick options for testing
 	if f == True:
 		list = True
-		filename = 'holder.geojson' 
+		filename = get_filename() 
 
 	# handling if input is a list or dataframe
 	if list == True:
@@ -895,6 +991,9 @@ def make_blocks(csvfile,**kwargs):
 	bounds = False
 	f = False
 	raw_geohashs = False
+	sc = False
+	splits = 8
+	multiple_files = False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key == 'strip':
@@ -916,6 +1015,50 @@ def make_blocks(csvfile,**kwargs):
 				f = True
 			elif key == 'raw_geohashs':
 				raw_geohashs = value
+			elif key == 'sc':
+				sc = value
+			if key == 'splits':
+				splits = value
+			if key == 'multiple_files':
+				multiple_files = value
+	# logic for executing pyspark operations
+	if not sc == False and not filename == False:
+		# arguments that will be sent into every mapped function
+		args = np.array_split(csvfile,splits)
+
+		# logic for handling multiple write outs
+		if multiple_files == True:
+			# creating updated arguments
+			string = str.split(filename,'.')[0]
+			newargs = []
+			count = 0
+			for row in args:
+				newargs.append([string + str(count) + '.geojson',row])
+				count += 1
+			args = newargs 
+
+			# creating thate instance in which spark will execute 
+			instance = sc.parallelize(args)
+
+			instance.map(make_wrapper_blocks).collect()
+			return []
+
+		# creating the instance in which spark will execute 
+		instance = sc.parallelize(args)
+
+		# collecting the instance of each jsonfile 
+		listofgeojsons = instance.map(make_blocks).collect()
+		
+
+			
+		# summing all jsons returned together
+		totaljson = spark_sum(listofgeojsons)
+
+		#parselist(totalvalue,filename)
+		with open(filename,'wb') as newgeojson:
+			json.dump(totaljson,newgeojson)
+		print 'Wrote %s to geojson.' % filename
+		return []
 
 	# logic for converting raw geohash list into
 	# a block dataframe
@@ -925,7 +1068,8 @@ def make_blocks(csvfile,**kwargs):
 	# developer quick options for testing
 	if f == True:
 		list = True
-		filename = 'holder.geojson' 
+		filename = get_filename()
+		print filename
 
 	# handling if input is a list or dataframe
 	if list == True:
@@ -1035,6 +1179,9 @@ def make_points(csvfile,**kwargs):
 	remove_squares = False
 	bounds = False
 	f = False
+	sc = False
+	splits = 8
+	multiple_files = False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key == 'strip':
@@ -1054,11 +1201,55 @@ def make_points(csvfile,**kwargs):
 				bounds = value
 			elif key == 'f':
 				f = True
+			elif key == 'sc':
+				sc = value
+			if key == 'splits':
+				splits = value
+			if key == 'multiple_files':
+				multiple_files = value
+
+	# logic for executing pyspark operations
+	if not sc == False and not filename == False:
+		# arguments that will be sent into every mapped function
+		args = np.array_split(csvfile,splits)
+
+
+
+		# logic for handling multiple write outs
+		if multiple_files == True:
+			# creating updated arguments
+			string = str.split(filename,'.')[0]
+			newargs = []
+			count = 0
+			for row in args:
+				newargs.append([string + str(count) + '.geojson',row])
+				count += 1
+			args = newargs 
+
+			# creating thate instance in which spark will execute 
+			instance = sc.parallelize(args)
+
+			instance.map(make_wrapper_points).collect()
+			return []
+
+		# creating the instance in which spark will execute 
+		instance = sc.parallelize(args)
+		# collecting the instance of each jsonfile 
+		listofgeojsons = instance.map(make_points).collect()
+
+		# summing all jsons returned together
+		totaljson = spark_sum(listofgeojsons)
+
+		#parselist(totalvalue,filename)
+		with open(filename,'wb') as newgeojson:
+			json.dump(totaljson,newgeojson)
+		print 'Wrote %s to geojson.' % filename
+		return []
 
 	# developer quick options for testing
 	if f == True:
 		list = True
-		filename = 'holder.geojson' 
+		filename = get_filename()
 
 	# handling if input is a list or dataframe
 	if list == True:
@@ -1138,6 +1329,10 @@ def make_postgis_lines(table,filename,**kwargs):
 	alignment_field = False
 	spark_output = False
 	bounds = False
+	sc = False
+	splits = 8
+	return_json = False
+	multiple_files = False
 	if kwargs is not None:
 		for key,value in kwargs.iteritems():
 			if key == 'alignment_field':
@@ -1146,6 +1341,53 @@ def make_postgis_lines(table,filename,**kwargs):
 				spark_output = value
 			if key == 'bounds':
 				bounds = value
+			if key == 'sc':
+				sc = value
+			if key == 'splits':
+				splits = value
+			if key == 'return_json':
+				return_json = value
+			if key == 'multiple_files':
+				multiple_files = value
+
+	# logic for executing pyspark operations
+	if not sc == False:
+		# arguments that will be sent into every mapped function
+		args = np.array_split(table,splits)
+		table = []
+
+		# logic for handling multiple write outs
+		if multiple_files == True:
+			# creating updated arguments
+			string = str.split(filename,'.')[0]
+			newargs = []
+			count = 0
+			for row in args:
+				newargs.append([string + str(count) + '.geojson',row])
+				count += 1
+			args = newargs 
+
+			# creating thate instance in which spark will execute 
+			instance = sc.parallelize(args)
+
+			instance.map(spark_wrapper_write_lines).collect()
+			return []
+
+
+		# creating thate instance in which spark will execute 
+		instance = sc.parallelize(args)
+
+		# collecting the instance of each jsonfile 
+		listofgeojsons = instance.map(spark_wrapper_lines).collect()
+
+		# summing all jsons returned together
+		totaljson = spark_sum(listofgeojsons)
+
+		#parselist(totalvalue,filename)
+		with open(filename,'wb') as newgeojson:
+			json.dump(totaljson,newgeojson)
+		print 'Wrote %s to geojson.' % filename
+		return []
 
 	#changing dataframe to list if dataframe
 	if isinstance(table,pd.DataFrame):
@@ -1179,21 +1421,77 @@ def make_postgis_lines(table,filename,**kwargs):
 		else:
 			totalvalue['features'].append(value['features'][0])
 	
+	# logic for if return_json is true
+	if return_json == True:
+		return totalvalue
+
 	#parselist(totalvalue,filename)
 	with open(filename,'wb') as newgeojson:
 		json.dump(totalvalue,newgeojson)
 	print 'Wrote %s to geojson.' % filename
+	return []
 
 
 # makes polygons for a postgis database
 def make_postgis_polygons(table,filename,**kwargs):
 	string_alignment = False
 	bounds = False
+	sc = False
+	splits = 8
+	return_json = False
+	multiple_files = False
 	for key,value in kwargs.iteritems():
 		if key == 'string_alignment':
 			string_alignment = value
 		if key == 'bounds':
 			boundry = value
+		if key == 'sc':
+			sc = value
+		if key == 'splits':
+			splits = value
+		if key == 'return_json':
+			return_json = value
+		if key == 'multiple_files':
+			multiple_files = value
+
+
+	# logic for executing pyspark operations
+	if not sc == False:
+		# arguments that will be sent into every mapped function
+		args = np.array_split(table,splits)
+
+		# logic for handling multiple write outs
+		if multiple_files == True:
+			# creating updated arguments
+			string = str.split(filename,'.')[0]
+			newargs = []
+			count = 0
+			for row in args:
+				newargs.append([string + str(count) + '.geojson',row])
+				count += 1
+			args = newargs 
+
+			# creating thate instance in which spark will execute 
+			instance = sc.parallelize(args)
+
+			instance.map(spark_wrapper_write_polygons).collect()
+			return []
+
+		# creating the instance in which spark will execute 
+		instance = sc.parallelize(args,splits)
+
+		# collecting the instance of each jsonfile 
+		listofgeojsons = instance.map(spark_wrapper_polygons).collect()
+
+		# summing all jsons returned together
+		totaljson = spark_sum(listofgeojsons)
+
+		#parselist(totalvalue,filename)
+		with open(filename,'wb') as newgeojson:
+			json.dump(totaljson,newgeojson)
+		print 'Wrote %s to geojson.' % filename
+		return []
+
 	# changing dataframe to list if dataframe
 	# still needs some work
 	if isinstance(table,pd.DataFrame):
@@ -1212,11 +1510,15 @@ def make_postgis_polygons(table,filename,**kwargs):
 			
 			totalvalue['features'].append(value['features'][0])
 	
+	# logic for if return_json is true
+	if return_json == True:
+		return totalvalue
+
 	#parselist(totalvalue,filename)
 	with open(filename,'wb') as newgeojson:
 		json.dump(totalvalue,newgeojson)
 	print 'Wrote %s to geojson.' % filename
-
+	return []
 # given a ring table writes geojson to file with structure indicated
 def make_tiered_polygon(ringtable,filename):
 	# getting header

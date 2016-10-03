@@ -1,0 +1,6 @@
+while len(areas) > current:
+	delta = areas - current
+	if delta > len(colors):
+		total += colors
+	else:
+		total += colors[:delta]
